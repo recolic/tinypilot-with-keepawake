@@ -18,6 +18,8 @@ import socket_api
 import views
 from find_files import find as find_files
 
+import keep_unlocked
+
 host = os.environ.get('HOST', '127.0.0.1')
 port = int(os.environ.get('PORT', 8000))
 debug = 'DEBUG' in os.environ
@@ -77,6 +79,8 @@ def handle_error(e):
 
 
 def main():
+    with app.app_context():
+        keep_unlocked.start_keep_awake_thread(flask.current_app.config.get('KEYBOARD_PATH'))
     socketio = socket_api.socketio
     socketio.init_app(app)
     socketio.run(app,
