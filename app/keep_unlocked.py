@@ -1,13 +1,13 @@
 # This module keeps target machine unlocked by one of two ways:
 #   1. moving mouse by 1 pixel every 58 seconds.
-#   2. press "Pause/Break" key every 58 seconds.
+#   2. press "PrintScreen" key every 58 seconds. (Pause/Break key is widely used in Powershell and Putty, it will break manything)
 
 import time, threading
 from hid import keyboard as fake_keyboard
 from hid import keycodes as hid_keycodes
 
 def wake_once_method_2(keyboard_path):
-    hid_keycode = hid_keycodes.KEYCODE_PAUSE_BREAK
+    hid_keycode = hid_keycodes.KEYCODE_PRINT_SCREEN
     hid_modifier_keycode = 0
     failed = "success"
 
