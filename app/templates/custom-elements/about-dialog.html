@@ -1,7 +1,6 @@
 <template id="about-dialog-template">
   <style>
     @import "css/style.css";
-    @import "css/button.css";
 
     .content {
       text-align: left;
@@ -75,7 +74,6 @@
 
   (function () {
     const template = document.querySelector("#about-dialog-template");
-    const creditBoxTemplate = document.querySelector("#credit-box-template");
 
     customElements.define(
       "about-dialog",
@@ -84,6 +82,7 @@
           this.attachShadow({ mode: "open" }).appendChild(
             template.content.cloneNode(true)
           );
+          this.addEventListener("overlay-shown", () => this._initialize());
           this.shadowRoot
             .querySelector(".close-btn")
             .addEventListener("click", () =>
@@ -91,17 +90,16 @@
             );
         }
 
-        initialize() {
+        _initialize() {
           this._checkVersion();
           this._populateCredits();
         }
 
         _checkVersion() {
           getVersion()
-            .then((version) => {
-              this.shadowRoot.getElementById(
-                "version-number"
-              ).innerText = this._formatVersion(version);
+            .then(({ version }) => {
+              this.shadowRoot.getElementById("version-number").innerText =
+                this._formatVersion(version);
             })
             .catch((error) => {
               this.dispatchEvent(
@@ -115,7 +113,11 @@
 
         _populateCredits() {
           getLicensingMetadata().then((metadata) => {
+            // Sort credits by project name.
+            metadata.sort((a, b) => a.name.localeCompare(b.name, "en"));
+
             const creditsDiv = this.shadowRoot.querySelector(".credits");
+            creditsDiv.innerHTML = "";
             for (const project of metadata) {
               // Skip displaying TinyPilot in the list of dependencies, since we
               // display the TinyPilot license in a special way.

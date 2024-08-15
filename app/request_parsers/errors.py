@@ -11,8 +11,20 @@ class MissingFieldError(Error):
 
 
 class InvalidHostnameError(Error):
-    code = "INVALID_HOSTNAME"
+    code = 'INVALID_HOSTNAME'
+
+
+class InvalidWifiSettings(Error):
+    code = 'INVALID_WIFI_SETTINGS'
 
 
 class InvalidVideoSettingError(Error):
+    pass
+
+
+class InvalidVideoSettingStunAddressError(Error):
+    code = 'INVALID_STUN_ADDRESS'
+
+
+class UnsupportedPastedCharacterError(Error):
     pass

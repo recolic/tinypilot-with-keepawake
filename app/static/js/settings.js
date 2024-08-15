@@ -1,12 +1,15 @@
 let settings = {};
 try {
   settings = JSON.parse(localStorage.getItem("settings"));
-} catch {}
+} catch {
+  // Ignore errors.
+}
 
 const defaults = {
   isKeyHistoryEnabled: true,
   cursor: "default",
   isKeyboardVisible: true,
+  isPasteAreaMasked: false,
 };
 
 // Initialize any undefined settings to their default values.
@@ -52,5 +55,14 @@ export function isKeyboardVisible() {
 
 export function setKeyboardVisibility(isVisible) {
   settings["isKeyboardVisible"] = isVisible;
+  persistSettings();
+}
+
+export function isPasteAreaMasked() {
+  return settings["isPasteAreaMasked"];
+}
+
+export function setPasteAreaMasked(isMasked) {
+  settings["isPasteAreaMasked"] = isMasked;
   persistSettings();
 }

@@ -15,6 +15,11 @@
  * https://github.com/tiny-pilot/ustreamer/blob/master/docs/h264.md
  */
 
+// Suppress ESLint warnings about undefined variables.
+// Janus is defined by the Janus library, which is globally available on the
+// page.
+/* global Janus */
+
 // Parameters for the setup.
 const config = {
   // Set to `true` to turn on all internal Janus logging. Make sure to set the
@@ -30,6 +35,9 @@ const config = {
 
   // The number of seconds within which the watch request can be retried.
   watchRequestRetryTimeoutSeconds: 60,
+
+  stunServer: window.TINYPILOT_JANUS_STUN_SERVER,
+  stunPort: window.TINYPILOT_JANUS_STUN_PORT,
 };
 
 // Initialize library.
@@ -44,6 +52,10 @@ const remoteScreen = document.getElementById("remote-screen");
 const janus = new Janus({
   server: `${config.useSSL ? "wss" : "ws"}://${config.deviceHostname}/janus/ws`,
   success: attachToJanusPlugin,
+  iceServers:
+    config.stunServer && config.stunPort
+      ? createIceServerUrls(config.stunServer, config.stunPort)
+      : undefined,
 
   /**
    * This callback is triggered if either the initial connection couldn’t be
@@ -77,7 +89,7 @@ function attachToJanusPlugin() {
      * associated to the handle changes.
      * ICE = Interactive Connectivity Establishment
      * See https://developer.mozilla.org/en-US/docs/Glossary/ICE
-     * @param {string} state E.g., "connected" or "failed".
+     * @param {string} state - E.g., "connected" or "failed".
      */
     iceState: function (state) {
       console.debug("ICE Connection State changed to: " + state);
@@ -85,7 +97,7 @@ function attachToJanusPlugin() {
 
     /**
      * The plugin handle was successfully created and is ready to be used.
-     * @param {object} pluginHandle The Janus plugin handle.
+     * @param {Object} pluginHandle - The Janus plugin handle.
      */
     success: function (pluginHandle) {
       janusPluginHandle = pluginHandle;
@@ -113,8 +125,8 @@ function attachToJanusPlugin() {
 
     /**
      * A message/event has been received from the plugin.
-     * @param {object} msg
-     * @param {object|null} jsep JSEP = JavaScript Session Establishment Protocol
+     * @param {Object} msg
+     * @param {Object} [jsep] - (JavaScript Session Establishment Protocol)
      */
     onmessage: function (msg, jsep) {
       // `503` indicates that the plugin was not initialized yet and therefore
@@ -165,20 +177,34 @@ function attachToJanusPlugin() {
      * not safe to assume that this callback will be invoked reliably. We have
      * also observed different behavior in Chrome and Firefox.
      *
-     * @param {MediaStreamTrack} track https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack
-     * @param {string} mid The Media-ID.
-     * @param {boolean} added Whether the track was added or removed.
+     * @param {MediaStreamTrack} track - https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack
+     * @param {string} mid - The Media-ID.
+     * @param {boolean} added - Whether the track was added or removed.
      */
-    onremotetrack: function (track, mid, added) {
+    onremotetrack: async function (track, mid, added) {
       console.debug(
         `Remote ${track.kind} track "${mid}" ${added ? "added" : "removed"}.`
       );
 
       if (added) {
-        remoteScreen.enableWebrtcStreamTrack(track);
+        await remoteScreen.addWebrtcStreamTrack(track);
+        await remoteScreen.enableWebrtc();
       } else {
-        remoteScreen.disableWebrtcStreamTrack(track);
+        await remoteScreen.removeWebrtcStreamTrack(track);
       }
     },
   });
+}
+
+/**
+ * @param {string} stunServer
+ * @param {number} stunPort
+ * @returns {Object[]} - Array of URL objects according to https://developer.mozilla.org/en-US/docs/Web/API/RTCIceServer/urls.
+ */
+function createIceServerUrls(stunServer, stunPort) {
+  // If the server value contains a colon, it’s an IPv6 address. In this case,
+  // we need to wrap the server part into square brackets, in order to be able
+  // to join it correctly with the port.
+  const server = stunServer.includes(":") ? `[${stunServer}]` : stunServer;
+  return [{ urls: `stun:${server}:${stunPort}` }];
 }

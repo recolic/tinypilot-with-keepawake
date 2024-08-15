@@ -1,14 +1,13 @@
-import pathlib
-
 import flask
 
 import db.store
+import env
 
-_DB_PATH = pathlib.PurePath.joinpath(pathlib.Path.home(), 'tinypilot.db')
+_DB_PATH = env.abs_path_in_home_dir('tinypilot.db')
 
 
 def get():
-    """Returns a database connection. (sqlite3.dbapi2.connection)"""
+    """Returns a database connection (sqlite3.dbapi2.connection)."""
     # Keep in mind that Flask only caches the connection object on a per-request
     # basis, and not throughout the entire runtime of the server.
     connection = _get_flask_db()

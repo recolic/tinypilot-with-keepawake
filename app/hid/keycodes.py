@@ -1,3 +1,5 @@
+import dataclasses
+
 # USB Usage ID values for the keycodes that TinyPilot can emit to the target
 # computer through the USB keyboard interface.
 #
@@ -127,6 +129,8 @@ KEYCODE_F23 = 0x72
 KEYCODE_EXECUTE = 0x74
 KEYCODE_HELP = 0x75
 KEYCODE_SELECT = 0x77
+KEYCODE_INTL_RO = 0x87
+KEYCODE_INTL_YEN = 0x89
 KEYCODE_HANGEUL = 0x90
 KEYCODE_HANJA = 0x91
 KEYCODE_LEFT_CTRL = 0xe0
@@ -139,3 +143,9 @@ KEYCODE_RIGHT_ALT = 0xe6
 KEYCODE_RIGHT_META = 0xe7
 KEYCODE_MEDIA_PLAY_PAUSE = 0xe8
 KEYCODE_REFRESH = 0xfa
+
+
+@dataclasses.dataclass
+class Keystroke:
+    keycode: int
+    modifier: int = KEYCODE_NONE

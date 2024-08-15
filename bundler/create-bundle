@@ -11,7 +11,7 @@ set -e
 # Exit on unset variable.
 set -u
 
-# Echo commands to stdout.
+# Echo commands before executing them, by default to stderr.
 set -x
 
 # Change directory to repository root.
@@ -24,11 +24,11 @@ cd ./bundler
 readonly BUNDLE_DIR='bundle'
 readonly OUTPUT_DIR='dist'
 
-readonly ANSIBLE_ROLES_DIR="${BUNDLE_DIR}/roles"
-readonly ANSIBLE_ROLE_TINYPILOT_DIR="${ANSIBLE_ROLES_DIR}/ansible-role-tinypilot"
+# Exclude the AMD64 package from the production bundle.
+rm -f "${BUNDLE_DIR}/tinypilot"*amd64.deb
 
 # Ensure that a TinyPilot Debian package exists.
-if ! ls "${BUNDLE_DIR}/tinypilot"*.deb 1> /dev/null 2>&1; then
+if ! ls "${BUNDLE_DIR}/tinypilot"*armhf.deb 1> /dev/null 2>&1; then
   echo 'Failed to create bundle: no TinyPilot Debian package found.' >&2
   exit 1
 fi
@@ -44,7 +44,7 @@ print_tinypilot_version() {
   dpkg-deb \
     --show \
     --showformat '${Tinypilot-Version}' \
-    "${BUNDLE_DIR}/tinypilot"*.deb
+    "${BUNDLE_DIR}/tinypilot"*armhf.deb
 }
 
 # Compose bundle file name, which consists of these hyphen-separated parts:
@@ -62,22 +62,23 @@ readonly TINYPILOT_VERSION
 readonly TINYPILOT_VARIANT='community'
 readonly BUNDLE_FILENAME="tinypilot-${TINYPILOT_VARIANT}-${TIMESTAMP}-${TINYPILOT_VERSION}.tgz"
 
-python3 -m venv venv
-. venv/bin/activate
-# Ensure we're using a version of pip that can use binary wheels where available
-# instead of building the packages locally.
-pip install "pip>=21.3.1"
-pip install --requirement "${BUNDLE_DIR}/requirements.txt"
+# Download Janus Bullseye Backports Debian package.
+# Note: before bumping the Janus package version, be sure to compare our Janus
+# systemd config file (debian-pkg/usr/share/tinypilot/janus.service) to that of
+# upstream and verify that the diff is the same as before.
+wget \
+  --directory-prefix="${BUNDLE_DIR}" \
+  http://ftp.us.debian.org/debian/pool/main/j/janus/janus_1.0.1-1~bpo11+1_armhf.deb
 
-# Copy Ansible role.
-mkdir "${ANSIBLE_ROLES_DIR}"
-cp -r ../ansible-role "${ANSIBLE_ROLE_TINYPILOT_DIR}"
+# Download uStreamer Debian package.
+wget \
+  --directory-prefix="${BUNDLE_DIR}" \
+  https://github.com/tiny-pilot/ustreamer-debian/releases/download/5.43-20231004144402/ustreamer_5.43-20231004144402_armhf.deb
 
-# Download Ansible role dependencies.
-ansible-galaxy install \
-  --roles-path "${ANSIBLE_ROLES_DIR}" \
-  --role-file "${ANSIBLE_ROLE_TINYPILOT_DIR}/meta/requirements.yml" \
-  --force
+# Download yq binary
+wget \
+  https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_arm \
+  --output-document="${BUNDLE_DIR}/yq"
 
 # Generate tarball bundle and meta file.
 mkdir -p "${OUTPUT_DIR}"

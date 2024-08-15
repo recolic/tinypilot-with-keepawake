@@ -2,17 +2,22 @@ import flask
 
 import db.settings
 import debug_logs
+import execute
 import hostname
 import json_response
 import local_system
+import network
 import request_parsers.errors
 import request_parsers.hostname
+import request_parsers.network
+import request_parsers.paste
 import request_parsers.video_settings
 import update.launcher
 import update.settings
 import update.status
 import version
 import video_service
+from hid import keyboard as fake_keyboard
 
 api_blueprint = flask.Blueprint('api', __name__, url_prefix='/api')
 
@@ -75,7 +80,6 @@ def update_get():
             "updateError": null
         }
     """
-
     status, error = update.status.get()
     return json_response.success({'status': str(status), 'updateError': error})
 
@@ -176,7 +180,7 @@ def hostname_get():
 
 @api_blueprint.route('/hostname', methods=['PUT'])
 def hostname_set():
-    """Changes the machine’s hostname
+    """Changes the machine’s hostname.
 
     Expects a JSON data structure in the request body that contains the
     new hostname as string. Example:
@@ -194,6 +198,127 @@ def hostname_set():
     except request_parsers.errors.Error as e:
         return json_response.error(e), 400
     except hostname.Error as e:
+        return json_response.error(e), 500
+
+
+@api_blueprint.route('/network/status', methods=['GET'])
+def network_status():
+    """Returns the current status of the available network interfaces.
+
+    Returns:
+        On success, a JSON data structure with the following properties:
+        ethernet: object
+        wifi: object
+        The object contains the following fields:
+        isConnected: bool
+        ipAddress: string or null
+        macAddress: string or null
+
+        Example:
+        {
+            "ethernet": {
+                "isConnected": true,
+                "ipAddress": "192.168.2.41",
+                "macAddress": "e4-5f-01-98-65-03"
+            },
+            "wifi": {
+                "isConnected": false,
+                "ipAddress": null,
+                "macAddress": null
+            }
+        }
+    """
+    # In dev mode, return dummy data because attempting to read the actual
+    # settings will fail in most non-Raspberry Pi OS environments.
+    if flask.current_app.debug:
+        return json_response.success({
+            'ethernet': {
+                'isConnected': True,
+                'ipAddress': '192.168.2.8',
+                'macAddress': '00-b0-d0-63-c2-26',
+            },
+            'wifi': {
+                'isConnected': False,
+                'ipAddress': None,
+                'macAddress': None,
+            },
+        })
+    ethernet, wifi = network.determine_network_status()
+    return json_response.success({
+        'ethernet': {
+            'isConnected': ethernet.is_connected,
+            'ipAddress': ethernet.ip_address,
+            'macAddress': ethernet.mac_address,
+        },
+        'wifi': {
+            'isConnected': wifi.is_connected,
+            'ipAddress': wifi.ip_address,
+            'macAddress': wifi.mac_address,
+        },
+    })
+
+
+@api_blueprint.route('/network/settings/wifi', methods=['GET'])
+def network_wifi_get():
+    """Returns the current WiFi settings, if present.
+
+    Returns:
+        On success, a JSON data structure with the following properties:
+        countryCode: string.
+        ssid: string.
+
+        Example:
+        {
+            "countryCode": "US",
+            "ssid": "my-network"
+        }
+
+        Returns an error object on failure.
+    """
+    wifi_settings = network.determine_wifi_settings()
+    return json_response.success({
+        'countryCode': wifi_settings.country_code,
+        'ssid': wifi_settings.ssid,
+    })
+
+
+@api_blueprint.route('/network/settings/wifi', methods=['PUT'])
+def network_wifi_enable():
+    """Enables a wireless network connection.
+
+    Expects a JSON data structure in the request body that contains a country
+    code, an SSID, and optionally a password; all as strings. Example:
+    {
+        "countryCode": "US",
+        "ssid": "my-network",
+        "psk": "sup3r-s3cr3t!"
+    }
+
+    Returns:
+        Empty response on success, error object otherwise.
+    """
+    try:
+        wifi_settings = request_parsers.network.parse_wifi_settings(
+            flask.request)
+        network.enable_wifi(wifi_settings)
+        return json_response.success()
+    except request_parsers.errors.Error as e:
+        return json_response.error(e), 400
+    except network.Error as e:
+        return json_response.error(e), 500
+
+
+@api_blueprint.route('/network/settings/wifi', methods=['DELETE'])
+def network_wifi_disable():
+    """Disables the WiFi network connection.
+
+    Returns:
+        Empty response on success, error object otherwise.
+    """
+    try:
+        network.disable_wifi()
+        return json_response.success()
+    except network.Error as e:
         return json_response.error(e), 500
 
 
@@ -253,7 +378,11 @@ def settings_video_get():
         'mjpegQuality': update_settings.ustreamer_quality,
         'defaultMjpegQuality': video_service.DEFAULT_MJPEG_QUALITY,
         'h264Bitrate': update_settings.ustreamer_h264_bitrate,
-        'defaultH264Bitrate': video_service.DEFAULT_H264_BITRATE
+        'defaultH264Bitrate': video_service.DEFAULT_H264_BITRATE,
+        'h264StunServer': update_settings.janus_stun_server,
+        'defaultH264StunServer': video_service.DEFAULT_H264_STUN_SERVER,
+        'h264StunPort': update_settings.janus_stun_port,
+        'defaultH264StunPort': video_service.DEFAULT_H264_STUN_PORT,
     })
 
 
@@ -270,13 +399,20 @@ def settings_video_put():
     - frameRate: int
     - mjpegQuality: int
     - h264Bitrate: int
+    - h264StunServer: string (hostname or IP address), or null
+    - h264StunPort: int, or null
+
+    Note that the h264StunServer and h264StunPort parameters must either both be
+    present, or both absent.
 
     Example of request body:
     {
         "streamingMode": "MJPEG",
         "frameRate": 12,
         "mjpegQuality": 80,
-        "h264Bitrate": 450
+        "h264Bitrate": 450,
+        "h264StunServer": "stun.example.com",
+        "h264StunPort": 3478
     }
 
     Returns:
@@ -291,6 +427,9 @@ def settings_video_put():
             flask.request)
         h264_bitrate = request_parsers.video_settings.parse_h264_bitrate(
             flask.request)
+        h264_stun_server, h264_stun_port = \
+            request_parsers.video_settings.parse_h264_stun_address(
+                flask.request)
     except request_parsers.errors.InvalidVideoSettingError as e:
         return json_response.error(e), 400
 
@@ -302,6 +441,8 @@ def settings_video_put():
     update_settings.ustreamer_desired_fps = frame_rate
     update_settings.ustreamer_quality = mjpeg_quality
     update_settings.ustreamer_h264_bitrate = h264_bitrate
+    update_settings.janus_stun_server = h264_stun_server
+    update_settings.janus_stun_port = h264_stun_port
 
     # Store the new parameters. Note: we only actually persist anything if *all*
     # values have passed the validation.
@@ -325,5 +466,35 @@ def settings_video_apply_post():
         Empty response.
     """
     video_service.restart()
+
+    return json_response.success()
+
+
+@api_blueprint.route('/paste', methods=['POST'])
+def paste_post():
+    """Pastes text onto the target machine.
+
+    Expects a JSON data structure in the request body that contains the
+    following parameters:
+    - text: string
+    - language: string as an IETF language tag
+
+    Example of request body:
+    {
+        "text": "Hello, World!",
+        "language": "en-US"
+    }
+
+    Returns:
+        Empty response on success, error object otherwise.
+    """
+    try:
+        keystrokes = request_parsers.paste.parse_keystrokes(flask.request)
+    except request_parsers.errors.Error as e:
+        return json_response.error(e), 400
+
+    keyboard_path = flask.current_app.config.get('KEYBOARD_PATH')
+    execute.background_thread(fake_keyboard.send_keystrokes,
+                              args=(keyboard_path, keystrokes))
 
     return json_response.success()

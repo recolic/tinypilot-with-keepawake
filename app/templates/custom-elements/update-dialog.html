@@ -1,7 +1,6 @@
 <template id="update-dialog-template">
   <style>
     @import "css/style.css";
-    @import "css/button.css";
 
     #checking,
     #update-available,
@@ -83,7 +82,7 @@
   <div id="latest">
     <h3>No Updates Available</h3>
     <p>You are running the latest version of TinyPilot.</p>
-    <button id="ok-latest" type="button">OK</button>
+    <button id="ok-latest" type="button">Close</button>
   </div>
 
   <div id="update-container">
@@ -102,7 +101,7 @@
 
     <div id="update-finished">
       <h3>Update Complete</h3>
-      <button id="ok-finished" type="button">OK</button>
+      <button id="ok-finished" type="button">Close</button>
     </div>
 
     <details>
@@ -135,7 +134,7 @@
     customElements.define(
       "update-dialog",
       class extends HTMLElement {
-        states = {
+        _states = {
           CHECKING: "checking",
           UPDATE_AVAILABLE: "update-available",
           LATEST: "latest",
@@ -143,10 +142,10 @@
           RESTARTING: "restarting",
           UPDATE_FINISHED: "update-finished",
         };
-        statesWithoutDialogClose = new Set([
-          this.states.CHECKING,
-          this.states.UPDATING,
-          this.states.RESTARTING,
+        _statesWithoutDialogClose = new Set([
+          this._states.CHECKING,
+          this._states.UPDATING,
+          this._states.RESTARTING,
         ]);
 
         connectedCallback() {
@@ -154,7 +153,7 @@
             template.content.cloneNode(true)
           );
 
-          this.elements = {
+          this._elements = {
             updateLogs: this.shadowRoot.querySelector(
               "#update-container .logs"
             ),
@@ -173,13 +172,13 @@
               location.reload();
             });
 
-          this.elements.updatePromptAutomatic.addEventListener(
+          this._elements.updatePromptAutomatic.addEventListener(
             "update-prompt-confirmed",
             () => {
               this._doUpdate();
             }
           );
-          this.elements.updatePromptAutomatic.addEventListener(
+          this._elements.updatePromptAutomatic.addEventListener(
             "update-prompt-canceled",
             () => {
               this.dispatchEvent(new DialogClosedEvent());
@@ -195,7 +194,7 @@
           this.setAttribute("state", newValue);
           this.dispatchEvent(
             new DialogCloseStateChangedEvent(
-              !this.statesWithoutDialogClose.has(newValue)
+              !this._statesWithoutDialogClose.has(newValue)
             )
           );
         }
@@ -208,18 +207,39 @@
         }
 
         checkVersion() {
-          this._state = this.states.CHECKING;
+          this._state = this._states.CHECKING;
 
           Promise.all([getVersion(), getLatestRelease()])
             .then(([localVersion, latestRelease]) => {
               if (localVersion.version === latestRelease.version) {
-                this._state = this.states.LATEST;
+                this._state = this._states.LATEST;
               } else {
                 this._renderPrompt(latestRelease);
-                this._state = this.states.UPDATE_AVAILABLE;
+                this._state = this._states.UPDATE_AVAILABLE;
               }
             })
             .catch((error) => {
+              if (error.code === "CERTIFICATE_NOT_YET_VALID") {
+                this.dispatchEvent(
+                  new DialogFailedEvent({
+                    title: "Unable to Connect to TinyPilot Update Server",
+                    message:
+                      "Your TinyPilot device couldn't establish a secure " +
+                      "connection to the update server, as the date on your " +
+                      "TinyPilot device and the date on the server are too " +
+                      "far apart. Your TinyPilot device might not know the " +
+                      "correct date if it hasn't been able to synchronize " +
+                      "with a network time server (NTP server).\n\nWait a " +
+                      "few minutes for your TinyPilot device to synchronize " +
+                      "its clock, then try again. If the error persists, " +
+                      "SSH in to your TinyPilot device to set the date " +
+                      "manually or check that your network allows " +
+                      "connections to NTP servers.",
+                    details: error,
+                  })
+                );
+                return;
+              }
               this.dispatchEvent(
                 new DialogFailedEvent({
                   title: "Failed to Retrieve Version Information",
@@ -242,9 +262,11 @@
         }
 
         _performRestart() {
-          return shutdown(/*restart*/ true)
+          return shutdown(/*restart=*/ true)
             .then(() => {
-              this._state = this.states.RESTARTING;
+              this._state = this._states.RESTARTING;
+              this._elements.updateLogs.textContent +=
+                "Restarting to complete update...\n";
             })
             .catch((error) => {
               this.dispatchEvent(
@@ -264,7 +286,9 @@
             timeout: 180 * 1000,
           })
             .then(() => {
-              this._state = this.states.UPDATE_FINISHED;
+              this._state = this._states.UPDATE_FINISHED;
+              this._elements.updateLogs.textContent +=
+                "Update is now complete.\n";
             })
             .catch((error) => {
               this.dispatchEvent(
@@ -298,15 +322,15 @@
         }
 
         async _doUpdate() {
-          this._state = this.states.UPDATING;
+          this._state = this._states.UPDATING;
 
           const updateLogsStreamer = new UpdateLogsStreamer();
           // Let the user know that the update logs are loading.
-          this.elements.updateLogs.textContent =
+          this._elements.updateLogs.textContent =
             "Retrieving update logs from TinyPilot device...\n";
           // Display new update logs as they come in.
           updateLogsStreamer.onNewLogs((logs) => {
-            this.elements.updateLogs.textContent += logs;
+            this._elements.updateLogs.textContent += logs;
           });
           updateLogsStreamer.start();
 
@@ -335,7 +359,10 @@
             this.dispatchEvent(
               new DialogFailedEvent({
                 title: "Failed to Complete Update",
-                details: error,
+                // Include full update logs in the error details, as it likely
+                // contains specific information about the error.
+                details: `${error}\n\n${this._elements.updateLogs.textContent}`,
+                isShareable: true,
               })
             );
             return;

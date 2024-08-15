@@ -2,31 +2,20 @@
   <style>
     @import "css/style.css";
 
-    :host {
-      display: none;
-      position: fixed;
-      overflow: auto;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: rgba(0, 0, 0, 0.7);
-      z-index: var(--z-index-overlay);
-    }
-
-    :host([show="true"]) {
-      display: block;
-    }
-
     #panel {
       position: relative;
-      max-width: 800px;
+      border: none;
+      width: min(800px, 100%);
+      box-sizing: border-box;
       margin: 100px auto;
+      max-height: none; /* Unset default max-height from native <dialog> */
       padding: 2rem;
       text-align: center;
       border-radius: var(--border-radius);
+    }
+
+    #panel::backdrop {
+      background-color: rgba(0, 0, 0, 0.7);
     }
 
     #close-button {
@@ -63,7 +52,7 @@
     }
   </style>
 
-  <div id="panel">
+  <dialog id="panel">
     <button id="close-button" title="Close Overlay">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18">
         <path
@@ -72,8 +61,8 @@
         />
       </svg>
     </button>
-    <slot></slot>
-  </div>
+    <slot id="dialog-slot"></slot>
+  </dialog>
 </template>
 
 <script type="module">
@@ -87,6 +76,9 @@
           this.attachShadow({ mode: "open" }).appendChild(
             template.content.cloneNode(true)
           );
+          this._elements = {
+            dialog: this.shadowRoot.querySelector("#panel"),
+          };
           this.show = this.show.bind(this);
           this.shadowRoot.addEventListener("dialog-closed", () =>
             this.show(false)
@@ -108,23 +100,51 @@
             }
           );
           this.shadowRoot
-            .getElementById("close-button")
+            .querySelector("#close-button")
             .addEventListener("click", () => this.show(false));
+          // Prevent auto-close behavior of native <dialog> if the user presses
+          // the ESC key.
+          this._elements.dialog.addEventListener("cancel", (evt) => {
+            evt.preventDefault();
+          });
         }
 
         show(isShown = true) {
-          this.setAttribute("show", isShown ? "true" : "false");
-          this.dispatchEvent(
-            new CustomEvent("overlay-toggled", {
-              detail: { isShown },
-              bubbles: true,
-              composed: true,
-            })
-          );
+          if (isShown) {
+            this._elements.dialog.showModal();
+            this._injectEvent(
+              new CustomEvent("overlay-shown", {
+                detail: { overlay: this },
+                bubbles: true,
+                composed: true,
+              })
+            );
+          } else {
+            this._elements.dialog.close();
+            this._injectEvent(
+              new CustomEvent("overlay-hidden", {
+                detail: { overlay: this },
+                bubbles: true,
+                composed: true,
+              })
+            );
+          }
         }
 
         isShown() {
-          return this.getAttribute("show") === "true";
+          return this._elements.dialog.open;
+        }
+
+        // Dispatch an event into the slotted element(s), to allow the dialog to
+        // react to it if need be (e.g., for performing initializations/
+        // clean-ups). In theory, there could be multiple elements in the slot,
+        // so they all need to receive the event – hence the `forEach`. In
+        // reality, we usually only slot a single dialog element, though.
+        _injectEvent(event) {
+          this.shadowRoot
+            .querySelector("#dialog-slot")
+            .assignedElements()
+            .forEach((el) => el.dispatchEvent(event));
         }
       }
     );

@@ -8,9 +8,9 @@ function getCsrfTokenElement(doc) {
 
 class ControllerError extends Error {
   /**
-   * @param details string with the original error message.
-   * @param code (optional) string with the error code, or `undefined` for
-   *             non-application or unknown errors.
+   * @param {string} details - The original error message.
+   * @param {string} [code] - The error code, or `undefined` for non-application
+   *     or unknown errors.
    */
   constructor(details, code) {
     super(details);
@@ -20,12 +20,12 @@ class ControllerError extends Error {
 
 /**
  * Processes response from the backend API.
- * @param response An object as returned by `fetch`
+ * @param {Object} response - An object as returned by `fetch`
  * @returns {Promise<Object>}
- *    Success case: a JSON response with status 2xx. Promise resolves with
- *                  data from response body.
- *    Error case:   anything else, e.g. non-JSON or status 4xx/5xx. Promise
- *                  rejects with a `ControllerError`.
+ *     Success case: a JSON response with status 2xx. Promise resolves with data
+ *         from response body.
+ *     Error case:   anything else, e.g. non-JSON or status 4xx/5xx. Promise
+ *         rejects with a `ControllerError`.
  *
  */
 async function processJsonResponse(response) {
@@ -60,8 +60,7 @@ async function processJsonResponse(response) {
 }
 
 export async function getLatestRelease() {
-  let route = "/api/latestRelease";
-  return fetch(route, {
+  return fetch("/api/latestRelease", {
     method: "GET",
     mode: "same-origin",
     cache: "no-cache",
@@ -70,6 +69,7 @@ export async function getLatestRelease() {
     .then(processJsonResponse)
     .then((updateInfo) => {
       ["version", "kind", "data"].forEach((field) => {
+        // eslint-disable-next-line no-prototype-builtins
         if (!updateInfo.hasOwnProperty(field)) {
           throw new ControllerError(`Missing expected ${field} field`);
         }
@@ -79,8 +79,7 @@ export async function getLatestRelease() {
 }
 
 export async function getVersion() {
-  let route = "/api/version";
-  return fetch(route, {
+  return fetch("/api/version", {
     method: "GET",
     mode: "same-origin",
     cache: "no-cache",
@@ -88,6 +87,7 @@ export async function getVersion() {
   })
     .then(processJsonResponse)
     .then((versionResponse) => {
+      // eslint-disable-next-line no-prototype-builtins
       if (!versionResponse.hasOwnProperty("version")) {
         throw new ControllerError("Missing expected version field");
       }
@@ -129,8 +129,7 @@ export async function shutdown(restart) {
 }
 
 export async function update() {
-  let route = "/api/update";
-  return fetch(route, {
+  return fetch("/api/update", {
     method: "PUT",
     headers: {
       "X-CSRFToken": getCsrfToken(),
@@ -142,8 +141,7 @@ export async function update() {
 }
 
 export async function getUpdateStatus() {
-  let route = "/api/update";
-  return fetch(route, {
+  return fetch("/api/update", {
     method: "GET",
     mode: "same-origin",
     cache: "no-cache",
@@ -151,9 +149,11 @@ export async function getUpdateStatus() {
   })
     .then(processJsonResponse)
     .then((data) => {
+      // eslint-disable-next-line no-prototype-builtins
       if (!data.hasOwnProperty("status")) {
         throw new ControllerError("Missing expected status field");
       }
+      // eslint-disable-next-line no-prototype-builtins
       if (!data.hasOwnProperty("updateError")) {
         throw new ControllerError("Missing expected updateError field");
       }
@@ -162,8 +162,7 @@ export async function getUpdateStatus() {
 }
 
 export async function determineHostname() {
-  const route = "/api/hostname";
-  return fetch(route, {
+  return fetch("/api/hostname", {
     method: "GET",
     mode: "same-origin",
     cache: "no-cache",
@@ -171,6 +170,7 @@ export async function determineHostname() {
   })
     .then(processJsonResponse)
     .then((hostnameResponse) => {
+      // eslint-disable-next-line no-prototype-builtins
       if (!hostnameResponse.hasOwnProperty("hostname")) {
         throw new ControllerError("Missing expected hostname field");
       }
@@ -179,8 +179,7 @@ export async function determineHostname() {
 }
 
 export async function changeHostname(newHostname) {
-  const route = "/api/hostname";
-  return fetch(route, {
+  return fetch("/api/hostname", {
     method: "PUT",
     mode: "same-origin",
     cache: "no-cache",
@@ -195,9 +194,85 @@ export async function changeHostname(newHostname) {
     .then(() => newHostname);
 }
 
+export async function getNetworkStatus() {
+  return fetch("/api/network/status", {
+    method: "GET",
+    mode: "same-origin",
+    cache: "no-cache",
+    redirect: "error",
+  })
+    .then(processJsonResponse)
+    .then((response) => {
+      ["ethernet", "wifi"].forEach((field) => {
+        // eslint-disable-next-line no-prototype-builtins
+        if (!response.hasOwnProperty(field)) {
+          throw new ControllerError(`Missing expected ${field} field`);
+        }
+        ["isConnected", "ipAddress", "macAddress"].forEach((property) => {
+          // eslint-disable-next-line no-prototype-builtins
+          if (!response[field].hasOwnProperty(property)) {
+            throw new ControllerError(
+              `Missing expected ${field}.${property} field`
+            );
+          }
+        });
+      });
+      return response;
+    });
+}
+
+export async function getWifiSettings() {
+  return fetch("/api/network/settings/wifi", {
+    method: "GET",
+    mode: "same-origin",
+    cache: "no-cache",
+    redirect: "error",
+  })
+    .then(processJsonResponse)
+    .then((response) => {
+      ["countryCode", "ssid"].forEach((field) => {
+        // eslint-disable-next-line no-prototype-builtins
+        if (!response.hasOwnProperty(field)) {
+          throw new ControllerError(`Missing expected ${field} field`);
+        }
+      });
+      return response;
+    });
+}
+
+export async function enableWifi(countryCode, ssid, psk) {
+  return fetch("/api/network/settings/wifi", {
+    method: "PUT",
+    mode: "same-origin",
+    cache: "no-cache",
+    redirect: "error",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCsrfToken(),
+    },
+    body: JSON.stringify({ countryCode, ssid, psk }),
+  })
+    .then(processJsonResponse)
+    .then(() => true);
+}
+
+export async function disableWifi() {
+  return fetch("/api/network/settings/wifi", {
+    method: "DELETE",
+    mode: "same-origin",
+    cache: "no-cache",
+    redirect: "error",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCsrfToken(),
+    },
+  })
+    .then(processJsonResponse)
+    .then(() => true);
+}
+
 export async function checkStatus(baseURL = "") {
-  const route = "/api/status";
-  return fetch(baseURL + route, {
+  return fetch(baseURL + "/api/status", {
     method: "GET",
     mode: "cors",
     cache: "no-cache",
@@ -234,6 +309,7 @@ export async function textToShareableUrl(text) {
   })
     .then(processJsonResponse)
     .then((data) => {
+      // eslint-disable-next-line no-prototype-builtins
       if (!data.hasOwnProperty("id")) {
         throw new ControllerError("Missing expected id field");
       }
@@ -259,7 +335,12 @@ export async function getVideoSettings() {
         "defaultMjpegQuality",
         "h264Bitrate",
         "defaultH264Bitrate",
+        "h264StunServer",
+        "defaultH264StunServer",
+        "h264StunPort",
+        "defaultH264StunPort",
       ].forEach((field) => {
+        // eslint-disable-next-line no-prototype-builtins
         if (!data.hasOwnProperty(field)) {
           throw new ControllerError(`Missing expected ${field} field`);
         }
@@ -273,6 +354,8 @@ export async function saveVideoSettings({
   frameRate,
   mjpegQuality,
   h264Bitrate,
+  h264StunServer,
+  h264StunPort,
 }) {
   return fetch("/api/settings/video", {
     method: "PUT",
@@ -288,6 +371,8 @@ export async function saveVideoSettings({
       frameRate,
       mjpegQuality,
       h264Bitrate,
+      h264StunServer,
+      h264StunPort,
     }),
   }).then(processJsonResponse);
 }
@@ -322,4 +407,18 @@ export async function isMjpegStreamAvailable() {
   })
     .then((response) => response.ok)
     .catch(() => false);
+}
+
+export async function pasteText(text, language) {
+  return fetch("/api/paste", {
+    method: "POST",
+    mode: "same-origin",
+    cache: "no-cache",
+    redirect: "error",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCsrfToken(),
+    },
+    body: JSON.stringify({ text, language }),
+  }).then(processJsonResponse);
 }

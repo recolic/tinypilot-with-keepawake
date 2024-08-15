@@ -78,6 +78,8 @@ _MAPPING = {
     'Home': hid.KEYCODE_HOME,
     'Insert': hid.KEYCODE_INSERT,
     'IntlBackslash': hid.KEYCODE_102ND,
+    'IntlRo': hid.KEYCODE_INTL_RO,
+    'IntlYen': hid.KEYCODE_INTL_YEN,
     'KeyA': hid.KEYCODE_A,
     'KeyB': hid.KEYCODE_B,
     'KeyC': hid.KEYCODE_C,
@@ -144,7 +146,21 @@ _MAPPING = {
 
 
 def convert(keystroke):
-    return _map_modifier_keys(keystroke), _map_keycode(keystroke)
+    """Converts a JavaScript-esque Keystroke object into a HID Keystroke object.
+
+    Args:
+        keystroke: A JavaScript-esque Keystroke object, as defined in
+            `app/request_parsers/keystroke.py`
+
+    Returns:
+        A HID Keystroke object.
+
+    Raises:
+        UnrecognizedKeyCodeError: If the JavaScript-esque Keystroke's keycode is
+            unrecognized.
+    """
+    return hid.Keystroke(keycode=_map_keycode(keystroke),
+                         modifier=_map_modifier_keys(keystroke))
 
 
 def _map_modifier_keys(keystroke):

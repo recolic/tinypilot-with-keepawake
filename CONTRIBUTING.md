@@ -8,9 +8,10 @@ The steps below show you how to quickly set up a development environment for Tin
 
 ### Requirements
 
-- Python 3.7 or higher
-- Node.js 14.17.5 or higher
+- Python 3.9 or higher
+- Node.js 18.16.1 or higher
 - [shellcheck](https://github.com/koalaman/shellcheck#installing)
+- [bats](https://bats-core.readthedocs.io/en/stable/installation.html)
 - Docker 20.10.x or higher
 
 ### Install packages
@@ -20,17 +21,32 @@ To install TinyPilot's dev packages, run the following command:
 ```bash
 python3 -m venv venv && \
   . venv/bin/activate && \
-  pip install --requirement requirements.txt && \
   pip install --requirement dev_requirements.txt && \
-  npm install
+  npm install && \
+  sudo npx playwright install-deps && \
+  ./dev-scripts/enable-multiarch-docker
 ```
 
-### Run automated tests
+### Run dev tests
 
 To run TinyPilot's build scripts, run:
 
 ```bash
-./dev-scripts/build
+./dev-scripts/check-all
+```
+
+### Run end-to-end tests
+
+To spawn a TinyPilot local dev server and run TinyPilot's end-to-end tests against that dev server, run:
+
+```bash
+./dev-scripts/run-e2e-tests
+```
+
+To run TinyPilot's end-to-end tests against a running TinyPilot device, first turn off HTTPS redirection. Open the device's page in your browser and click through the privacy error. Then, navigate the menu options `System > Security`. Turn off "Require encrypted connection (HTTPS)". Finally, run the tests by passing an http URL as the first argument like so:
+
+```bash
+./dev-scripts/run-e2e-tests http://tinypilot.local
 ```
 
 ### Enable Git hooks
@@ -38,10 +54,10 @@ To run TinyPilot's build scripts, run:
 If you're planning to contribute code to TinyPilot, it's a good idea to enable the standard Git hooks so that build scripts run before you commit. That way, you can see if basic tests pass in a few seconds rather than waiting a few minutes to watch them run in CircleCI.
 
 ```bash
-./hooks/enable_hooks
+./dev-scripts/enable-git-hooks
 ```
 
-### Enable mock scripts
+### Enable mock scripts and passwordless sudo access
 
 The TinyPilot server backend uses several privileged scripts (provisioned to [`/opt/tinypilot-privileged/scripts/`](debian-pkg/opt/tinypilot-privileged/scripts)). Those scripts exist on a provisioned TinyPilot device, but they don't exist on a dev machine.
 
@@ -49,6 +65,12 @@ To set up symlinks that mock out those scripts and facilitate development, run t
 
 ```bash
 sudo ./dev-scripts/enable-mock-scripts
+```
+
+If you do not already have passwordless sudo enabled in general, you also need to allow the server backend to execute these privileged scripts and other services without interactively prompting you for a password. To do that, run:
+
+```bash
+sudo ./dev-scripts/enable-passwordless-sudo
 ```
 
 ### Run in dev mode
@@ -59,28 +81,216 @@ To run TinyPilot on a non-Pi machine, run:
 ./dev-scripts/serve-dev
 ```
 
-## Setting up a device for QA/testing
+### Open dialogs after page load
 
-For more complex changes it is useful to test your feature branch on a Raspberry Pi, in order to verify them in the real production environment.
+If you are doing UI development in a dialog, it can be cumbersome to having to open a dialog via the menu after every page refresh.
 
-### Setup SSH keys for login
+For convenience, you can append a parameter called `request` to the page URL, and specify the HTML id of the dialog as value. That will open the respective dialog straight away.
 
-1. [Generate SSH keys and upload your public key](https://www.raspberrypi.org/documentation/remote-access/ssh/passwordless.md) to your device. Please use strong keys, e.g., ED25519 or RSA 4096+.
-2. Verify that you can login with your SSH keys.
-3. On the device, disable password-based login by specifying `PasswordAuthentication no` in `/etc/ssh/sshd_config`. Reboot afterwards.
+Example: `http://localhost:8000?request=about-dialog`
 
-### SSH agent forwarding
+Technically, this assembles a `about-dialog-requested` event and dispatches it to the menu bar component.
 
-In case you need SSH keys for accessing the Git repositories (e.g., for testing TinyPilot's Pro version), please enable SSH agent forwarding in your local `~/.ssh/config`.
+## QA/Testing on a TinyPilot device
+
+It’s useful to have a TinyPilot device set up for testing changes end-to-end and in a real production environment.
+
+One upfront note about security: the following guides suggest intentionally loose security settings. This is a trade-off for development convenience. You should only take them over if your TinyPilot device resides in a private network, and if it isn’t connected to a target machine with sensitive data.
+
+### Local SSH Setup
+
+For convenient SSH access to your TinyPilot device, you should [generate a pair of dedicated SSH keys](https://www.raspberrypi.com/documentation/computers/remote-access.html#generate-new-ssh-keys) on your dev machine, e.g. `~/.ssh/tinypilot`.
+
+By adding the following block to your `~/.ssh/config` file, your dev machine will pick up your SSH key for accessing the TinyPilot device, and your dev machine will also skip the integrity checks of the connection.
 
 ```
-Host tinypilot
-  ForwardAgent yes
+Host raspberrypi raspberrypi.local
+  User root
+  IdentityFile ~/.ssh/tinypilot
+  UserKnownHostsFile /dev/null
+  StrictHostKeyChecking no
 ```
 
-### Remote scripts
+### Remote SSH Setup
 
-For carrying out common procedures on the device, see [here](dev-scripts/remote-scripts/README.md).
+On the remote machine, add your public SSH key to the `/root/.ssh/authorized_keys` file. If the file or directory doesn’t exist yet, you have to create it manually.
+
+```bash
+sudo su
+mkdir -p /root/.ssh
+echo 'YOUR_PUBLIC_SSH_KEY' > /root/.ssh/authorized_keys
+```
+
+In order to do this, you have to authenticate via username/password.
+
+On TinyPilot Pro, the default username/password is `pilot`/`flyingsopi`. Remember to first enable SSH access via the security settings dialog in the TinyPilot Pro web UI.
+
+### Flash SD-card with clean Raspberry Pi OS
+
+For setting up a clean device, we recommend using the [“Raspberry Pi Imager” app](https://www.raspberrypi.com/software/) for flashing SD-cards. Make sure you use the following settings:
+
+- Lite version of Raspberry Pi OS (i.e., no desktop environment)
+- Enable SSH access
+- Add your public SSH key as authorized key
+
+By the way, for flashing the ready-made disk images of TinyPilot Pro, we recommend using the [“Balena Etcher” app](https://etcher.balena.io/).
+
+### Initialize system on Voyager hardware
+
+If you want to initialize a new system on Voyager hardware, you first need to set some configuration in place to make TinyPilot work with Voyager’s video capture chip.
+
+```bash
+# Create tinypilot system user and group.
+addgroup --system tinypilot
+adduser \
+    --system \
+    --shell /bin/bash \
+    --ingroup tinypilot \
+    --home "/home/tinypilot" \
+    tinypilot
+
+# Add uStreamer configuration.
+echo "dtoverlay=tc358743" | sudo tee --append /boot/config.txt
+```
+
+### Install from source
+
+To build and install your changes on device, perform the following steps:
+
+1. [Install Docker](https://docs.docker.com/engine/install/raspbian/#install-using-the-convenience-script) (if you haven't already):
+   ```bash
+   curl -fsSL https://get.docker.com | sudo bash -
+   ```
+1. On the device, clone the TinyPilot repo to a temporary directory.
+1. Check out the branch that has your changes.
+1. Run the [`dev-scripts/device/install-from-source`](dev-scripts/device/install-from-source) script to build and install your branch's code. For example:
+   ```bash
+   sudo dev-scripts/device/install-from-source
+   ```
+
+### Installing a TinyPilot bundle
+
+The canonical way to build bundles is on CircleCI. The `build_bundle` CircleCI job will store built bundles as artifacts.
+
+For TinyPilot Community, you can just copy the URL to the artifact directly on CircleCI.
+
+For TinyPilot Pro, CircleCI prevents anonymous downloads of CircleCI artifacts. To make the bundle URL available, you'll need to move the bundle from CircleCI to PicoShare:
+
+1. Download the bundle file from CircleCI.
+1. Upload the bundle file to TinyPilot's PicoShare server.
+   - [See this (org-private) Wiki page for our internal sharing URL](https://github.com/tiny-pilot/tinypilot-pro/wiki/PicoShare-Server-for-Uploading-Dev-Bundles).
+1. Copy the PicoShare URL for the TinyPilot bundle.
+
+In order to install a TinyPilot bundle on device, run the following command:
+
+```bash
+curl \
+  --silent \
+  --show-error \
+  --location \
+  https://raw.githubusercontent.com/tiny-pilot/tinypilot/master/dev-scripts/device/install-bundle | \
+  sudo bash -s -- \
+    url-to-bundle-file # replace this line with your bundle URL
+```
+
+### Build a uStreamer Debian package
+
+CircleCI builds the uStreamer Debian package for the `armhf` architecture on every commit to the [`ustreamer-debian` repo](https://github.com/tiny-pilot/ustreamer-debian), which is stored as a CircleCI artifact.
+
+Follow these steps:
+
+1. Make changes to the [`ustreamer-debian` Github repo](https://github.com/tiny-pilot/ustreamer-debian).
+1. Push your changes to a branch on Github.
+1. Find your job in `ustreamer-debian`'s CircleCI dashboard and click the `test` workflow.
+1. Click the `build_debian_package` job.
+   - If the [`build_debian_package` CircleCI job](https://github.com/tiny-pilot/ustreamer-debian/blob/2ace4a1d22a3c9108f5285e3dff0290c60e5b1cf/.circleci/config.yml#L25) fails for some reason, you can manually debug the code in CircleCI by clicking "rerun job with SSH" in the CircleCI dashboard and following their SSH instructions. Remember to cancel the CircleCI job once you're done debugging, in order to reduce CI costs.
+1. When the job completes, go to the "Artifacts" tab of the `build_debian_package` job on CircleCI to find the uStreamer Debian packages.
+
+   - We use `armhf`-based builds on physical devices and for testing in CircleCI.
+   - [Docker platform names don't match Debian architecture names:](https://github.com/tiny-pilot/ustreamer-debian/blob/2ace4a1d22a3c9108f5285e3dff0290c60e5b1cf/Dockerfile#L46C1-L48)
+
+     > Docker's platform names don't match Debian's platform names, so we translate
+     > the platform name from the Docker version to the Debian version...
+
+     Which means that when Docker's target platform is:
+
+     - `linux/arm/v7`, CircleCI creates a `armhf` Debian package
+
+### Install a uStreamer Debian package
+
+Follow these steps to install a uStreamer Debian package on a physical device:
+
+1. [Build a uStreamer Debian package](CONTRIBUTING.md#build-a-uStreamer-Debian-package).
+1. Copy the URL of the uStreamer Debian package created in step (1).
+1. SSH onto the device and run the following command:
+
+   ```bash
+   DEBIAN_PACKAGE_PATH=url-to-debian-package # Replace the Debian package URL here.
+   DEBIAN_PACKAGE_FILE="$(mktemp)"
+   curl \
+     --silent \
+     --show-error \
+     --location \
+     --output "${DEBIAN_PACKAGE_FILE}" \
+     "${DEBIAN_PACKAGE_PATH}" && \
+     sudo apt-get install --yes "${DEBIAN_PACKAGE_FILE}"
+   ```
+
+## Other dev workflows
+
+### Scripting often-used procedures
+
+For common procedures that you need to repeat often, it’s useful to encode them as bash scripts. We currently don’t provide off-the-shelf scripts here, because the dev setups and environments are too different.
+
+As a tip: given that your SSH config is all set, you can script commands for the remote machine like this:
+
+```bash
+# Execute single command.
+ssh raspberrypi "echo 'Hello World'"
+
+# Execute multiple commands.
+ssh raspberrypi << 'ENDSSH'
+echo 'Hello ...'
+echo '... World!'
+ENDSSH
+```
+
+### Updating Python pip packages
+
+We don't use any Python package management tools because we want to limit complexity, but it means we use a manual process to update the pip packages we use in production:
+
+1. `deactivate` to exit the virtual env (if you're in one).
+1. `rm -rf venv` to get rid of dev packages.
+1. `sed '/# Indirect dependencies/q' requirements.txt | tee requirements.txt` to delete all the indirect dependencies from `requirements.txt`
+1. Update the version number of the PyPI package you want to update.
+1. Review the package's changelog, and look for any breaking changes since our last update.
+1. `python3 -m venv venv && . venv/bin/activate && pip install --requirement requirements.txt` to reinstall production dependencies.
+1. `pip freeze >> requirements.txt` to dump exact version numbers of all direct and indirect dependencies.
+1. `awk '/^\s*$/ || !a[tolower($0)]++' requirements.txt | tee requirements.txt` to delete duplicate lines.
+1. Update `app/license_notice.py` to match any changes in `requirements.txt`.
+
+We don't track indirect dependencies for our dev dependencies (in `dev_requirements.txt`), so you can update those by simply changing the version number for any package.
+
+### Building an ARMv7 bundle on a dev system
+
+To build a TinyPilot install bundle on your dev system, you first need to configure a Docker builder for multi-architecture builds using QEMU. You only need to perform this step once per system:
+
+```bash
+./dev-scripts/enable-multiarch-docker
+```
+
+Once your dev system is configured for multi-architecture Docker builds, you can build install ARMv7 TinyPilot bundles with the following commands:
+
+```bash
+TARGET_PLATFORM='linux/arm/v7'
+
+(rm debian-pkg/releases/tinypilot*.deb || true) && \
+  ./dev-scripts/build-debian-pkg "${TARGET_PLATFORM}" && \
+  mv debian-pkg/releases/tinypilot*.deb bundler/bundle && \
+  ./bundler/create-bundle
+```
+
+The newly built install bundle will be in `./bundler/dist`.
 
 ## Architecture
 
@@ -93,12 +303,18 @@ TinyPilot accepts various options through environment variables:
 | Environment Variable | Default     | Description                                           |
 | -------------------- | ----------- | ----------------------------------------------------- |
 | `HOST`               | `127.0.0.1` | Network interface to listen for incoming connections. |
-| `PORT`               | `8000`      | HTTP port to listen for incoming connections.         |
+| `PORT`               | `48000`     | HTTP port to listen for incoming connections.         |
 | `DEBUG`              | undefined   | Set to `1` to enable debug logging.                   |
 
 ## Code style conventions
 
 See [tinypilot/style-guides](https://github.com/tiny-pilot/style-guides).
+
+## User interface style guide
+
+We document UI patterns and components in a style guide, to maintain a consistent user experience throughout the web application.
+
+After launching TinyPilot in debug mode, the style guide is available at [localhost:8000/styleguide](http://localhost:8000/styleguide).
 
 ## Web Components Conventions
 
@@ -113,30 +329,30 @@ It's common for a component to change its appearance based on its internal state
 In a framework like React or Vue, we'd use conditional rendering to change the UI depending on the component's internal state. With raw web components, conditional rendering is not possible. Instead, TinyPilot's convention is to add a `state` attribute to the root element with getter and setter methods that look like this:
 
 ```javascript
-get state() {
+get _state() {
   return this.getAttribute("state");
 }
 
-set state(newValue) {
+set _state(newValue) {
   this.setAttribute("state", newValue);
 }
 ```
 
-We enumerate all possible state values in the states property on the web component class, like so:
+We enumerate all possible state values in the `_states` property on the web component class, like so:
 
 ```javascript
 class extends HTMLElement {
-    states = {
+    _states = {
         INITIALIZING: "initializing",
         FETCH_FROM_URL: "fetch-from-url",
         VIEW: "view",
     };
 ```
 
-The class attribute `states` can then be used in the JavaScript component code:
+The class property `_states` can then be used in the JavaScript component code:
 
 ```javascript
-this.state = this.states.FETCH_FROM_URL;
+this._state = this._states.INITIALIZING;
 ```
 
 We then use CSS rules based on the `state` attribute to control the component's appearance:
@@ -172,20 +388,30 @@ This ensures that the elements in the `<div id="initializing">` only appear when
 
 Prefer to change a web component's appearance based on attributes and CSS rules as opposed to JavaScript that manipulates the `.style` attributes of elements within the component.
 
+We can then initialize the component when the dialog is opened by listening for the `overlay-shown` event:
+
+```javascript
+connectedCallback() {
+  this.addEventListener("overlay-shown", () => {
+    this._state = this._states.INITIALIZING);
+  };
+}
+```
+
 ### Disable closing a dialog
 
 For a component that is used within an overlay, there might be certain states that should prevent the user from closing the dialog. That’s typically the case when we are waiting for an action to complete (for example when loading something).
 
-These particular states are listed in the `statesWithoutDialogClose` class property, like so:
+These particular states are listed in the `_statesWithoutDialogClose` class property, like so:
 
 ```javascript
 class extends HTMLElement {
-    states = {
+    _states = {
         INITIALIZING: "initializing",
         FETCH_FROM_URL: "fetch-from-url",
         VIEW: "view",
     };
-    statesWithoutDialogClose = new Set([this.states.INITIALIZING]);
+    _statesWithoutDialogClose = new Set([this._states.INITIALIZING]);
 ```
 
 Note: for consistency, we always use a `Set` here, even if it only contains a single element.
@@ -193,11 +419,11 @@ Note: for consistency, we always use a `Set` here, even if it only contains a si
 In the state setter, we emit an event to inform the enclosing overlay whether or not to show the `x` close button.
 
 ```javascript
-set state(newValue) {
+set _state(newValue) {
     this.setAttribute("state", newValue);
     this.dispatchEvent(
     new DialogCloseStateChangedEvent(
-        !this.statesWithoutDialogClose.has(newValue)
+        !this._statesWithoutDialogClose.has(newValue)
     )
     );
 }
@@ -207,13 +433,13 @@ This event will be picked up by the `overlay-panel` which will hide the X close 
 
 ### Create element references in `connectedCallback()`
 
-If a component's JavaScript requires access to any of the elements in the web component's HTML, assign those elements an `id` attribute and store them in a member object called `this.elements`
+If a component's JavaScript requires access to any of the elements in the web component's HTML, assign those elements an `id` attribute and store them in a member object called `this._elements`
 
 ```javascript
 connectedCallback() {
   this.attachShadow({ mode: "open" });
   this.shadowRoot.appendChild(template.content.cloneNode(true));
-  this.elements = {
+  this._elements = {
     noFilesText: this.shadowRoot.getElementById("no-backing-files"),
     table: this.shadowRoot.getElementById("backing-files-table"),
     tableBody: this.shadowRoot.getElementById("table-body"),

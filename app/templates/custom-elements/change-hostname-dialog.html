@@ -1,7 +1,6 @@
 <template id="change-hostname-template">
   <style>
     @import "css/style.css";
-    @import "css/button.css";
 
     #initializing,
     #prompt,
@@ -39,14 +38,11 @@
     <div>
       <progress-spinner></progress-spinner>
     </div>
-    <button id="cancel-initialization" type="button">Cancel</button>
   </div>
 
   <div id="prompt">
     <h3>Change Hostname</h3>
-    <p>
-      Enter a new hostname for TinyPilot.
-    </p>
+    <p>Enter a new hostname for TinyPilot.</p>
     <div class="input-container">
       <label for="hostname-input">Hostname:</label>
       <input
@@ -68,7 +64,7 @@
     <button id="change-and-restart" class="btn-success" type="button">
       Change and Restart
     </button>
-    <button id="cancel-hostname-change" type="button">Cancel</button>
+    <button id="cancel-hostname-change" type="button">Close</button>
   </div>
 
   <div id="changing">
@@ -96,89 +92,65 @@
     determineHostname,
     shutdown,
   } from "/js/controllers.js";
+  import { determineFutureOrigin } from "/js/hostname.js";
 
   (function () {
     const template = document.querySelector("#change-hostname-template");
 
-    /**
-     * Figure out the new URL under which TinyPilot will become
-     * available after rebooting.
-     * @param {Location} currentLocation
-     * @param {string} oldHostname
-     * @param {string} newHostname
-     * @returns {string}
-     */
-    function futureLocation(currentLocation, oldHostname, newHostname) {
-      const protocol = currentLocation.protocol + "//";
-      let fqdn = currentLocation.hostname;
-      if (fqdn.startsWith(oldHostname + ".")) {
-        // When the fqdn (fully qualified domain name) starts with the old
-        // hostname followed by a dot, then we replace the old one by the
-        // new one in order to preserve the domain part.
-        // E.g.: "oldtinypilot.home.local" => "newtinypilot.home.local"
-        fqdn = fqdn.replace(oldHostname, newHostname);
-      } else {
-        // Otherwise we just assume the new hostname to be a fully qualified
-        // one. That might not be correct, but it’s the best possible guess.
-        fqdn = newHostname;
-      }
-      const port =
-        currentLocation.port === "" ? "" : `:${currentLocation.port}`;
-      return protocol + fqdn + port;
-    }
-
     customElements.define(
       "change-hostname-dialog",
       class extends HTMLElement {
-        states = {
+        _states = {
           INITIALIZING: "initializing",
           PROMPT: "prompt",
           CHANGING: "changing",
         };
-        statesWithoutDialogClose = new Set([this.states.CHANGING]);
+        _statesWithoutDialogClose = new Set([
+          this._states.CHANGING,
+          this._states.INITIALIZING,
+        ]);
 
         connectedCallback() {
           this.attachShadow({ mode: "open" }).appendChild(
             template.content.cloneNode(true)
           );
-          this.elements = {
+          this._elements = {
             inputError: this.shadowRoot.getElementById("input-error"),
             hostnameInput: this.shadowRoot.getElementById("hostname-input"),
-            changeAndRestart: this.shadowRoot.getElementById(
-              "change-and-restart"
-            ),
-            cancelInitialization: this.shadowRoot.getElementById(
-              "cancel-initialization"
-            ),
+            changeAndRestart:
+              this.shadowRoot.getElementById("change-and-restart"),
             cancelHostnameChange: this.shadowRoot.getElementById(
               "cancel-hostname-change"
             ),
             futureLocation: this.shadowRoot.getElementById("future-location"),
           };
 
-          this.elements.hostnameInput.addEventListener("input", () => {
+          this.addEventListener("overlay-shown", () => this._initialize());
+          this._elements.hostnameInput.addEventListener("input", () => {
             this._onInputChanged();
           });
-          this.elements.changeAndRestart.addEventListener("click", () => {
+          this._elements.changeAndRestart.addEventListener("click", () => {
             this._doChangeHostname();
           });
-          this.elements.cancelInitialization.addEventListener("click", () => {
-            this.dispatchEvent(new DialogClosedEvent());
+          this._elements.hostnameInput.addEventListener("keydown", (evt) => {
+            if (evt.code === "Enter") {
+              this._elements.changeAndRestart.click();
+            }
           });
-          this.elements.cancelHostnameChange.addEventListener("click", () => {
+          this._elements.cancelHostnameChange.addEventListener("click", () => {
             this.dispatchEvent(new DialogClosedEvent());
           });
         }
 
-        get state() {
+        get _state() {
           return this.getAttribute("state");
         }
 
-        set state(newValue) {
+        set _state(newValue) {
           this.setAttribute("state", newValue);
           this.dispatchEvent(
             new DialogCloseStateChangedEvent(
-              !this.statesWithoutDialogClose.has(newValue)
+              !this._statesWithoutDialogClose.has(newValue)
             )
           );
         }
@@ -191,16 +163,16 @@
           this.setAttribute("initial-hostname", initialHostname);
         }
 
-        initialize() {
-          this.elements.inputError.hide();
-          this.state = this.states.INITIALIZING;
+        _initialize() {
+          this._elements.inputError.hide();
+          this._state = this._states.INITIALIZING;
           determineHostname()
             .then((hostname) => {
               this.initialHostname = hostname;
-              this.elements.hostnameInput.value = hostname;
+              this._elements.hostnameInput.value = hostname;
               this._onInputChanged(hostname);
-              this.state = this.states.PROMPT;
-              this.elements.hostnameInput.focus();
+              this._state = this._states.PROMPT;
+              this._elements.hostnameInput.focus();
             })
             .catch((error) => {
               this.dispatchEvent(
@@ -214,34 +186,36 @@
 
         _onInputChanged() {
           const isEqualToInitialValue =
-            this.elements.hostnameInput.value === this.initialHostname;
-          this.elements.changeAndRestart.disabled = isEqualToInitialValue;
+            this._elements.hostnameInput.value === this.initialHostname;
+          const isEmpty = this._elements.hostnameInput.value === "";
+          this._elements.changeAndRestart.disabled =
+            isEmpty || isEqualToInitialValue;
         }
 
         _doChangeHostname() {
-          changeHostname(this.elements.hostnameInput.value)
+          changeHostname(this._elements.hostnameInput.value)
             .then((newHostname) => {
               return shutdown(/*restart=*/ true).then(() => newHostname);
             })
             .then((newHostname) => {
-              return futureLocation(
-                window.location,
+              return determineFutureOrigin(
+                new URL(window.location),
                 this.initialHostname,
                 newHostname
               );
             })
             .then((redirectURL) => {
-              this.elements.futureLocation.innerText = redirectURL;
-              this.elements.futureLocation.href = redirectURL;
-              this.state = this.states.CHANGING;
+              this._elements.futureLocation.innerText = redirectURL;
+              this._elements.futureLocation.href = redirectURL;
+              this._state = this._states.CHANGING;
               return this._waitForReboot(redirectURL);
             })
             .catch((error) => {
               if (error.code === "INVALID_HOSTNAME") {
                 // Display validation errors inline in order to make it more
                 // convenient for the user to correct them.
-                this.elements.inputError.show();
-                this.state = this.states.PROMPT;
+                this._elements.inputError.show();
+                this._state = this._states.PROMPT;
                 return;
               }
               this.dispatchEvent(

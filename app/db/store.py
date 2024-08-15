@@ -1,4 +1,5 @@
-"""
+"""Manages database access and schema migrations.
+
 For evolving our database schema over time, we follow the idea of “evolutionary
 database design” (https://www.martinfowler.com/articles/evodb.html), which is
 also used by DB migration tools like Liquibase or the one in Django.
@@ -121,7 +122,7 @@ def create_or_open(db_path):
         with connection as transaction:
             # Without an explicit `BEGIN`, the sqlite3 library would autocommit
             # structural modifications immediately. See:
-            # https://docs.python.org/3.7/library/sqlite3.html#transaction-control
+            # https://docs.python.org/3.9/library/sqlite3.html#controlling-transactions
             # Note that the `BEGIN` cannot be executed in a separate, preceding
             # `transaction.execute('BEGIN')` command, because
             # `transaction.executescript` automatically issues a `COMMIT` before

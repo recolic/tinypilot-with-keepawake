@@ -1,7 +1,6 @@
 <template id="menu-bar-template">
   <style>
     @import "css/style.css";
-    @import "css/cursors.css";
 
     a {
       color: white;
@@ -27,8 +26,30 @@
     li:hover > ul {
       visibility: visible;
       opacity: 1;
-      -webkit-transition: 0.3s;
-      transition: 0.3s;
+      transition: 300ms;
+    }
+
+    li > ul {
+      /* For the fade-out duration, we need to find a good compromise between
+         keeping the menu open long enough so that it doesn’t immediately
+         disappear when the user leaves the menu area for a split second
+         (e.g., if they accidentally “overshoot” with their cursor.) But it
+         also shouldn’t be so long that the menu feels sluggish or sticky. */
+      transition: 300ms;
+      /* For the fade-out timing, slow down the transition in the initial
+         moment when the cursor leaves the menu area, and only make the
+         fade-out kick in after that initial “threshold”. Otherwise, if the
+         user would accidentally leave the menu area for a split second, the
+         menu would _immediately_ start to disappear, which is distracting. */
+      transition-timing-function: cubic-bezier(0.5, 0, 1, 0.25);
+    }
+
+    .prevent-flickering-on-page-load li > ul {
+      /* Some browsers (e.g., Safari) apply transitions on page load as well,
+         in which case the menu would briefly flicker when opening the page.
+         Therefore, we suppress transitions here, and remove this CSS class via
+         JS in the connectCallback after the DOM has finished loading. */
+      transition: none !important;
     }
 
     :host {
@@ -46,6 +67,10 @@
       -moz-user-select: none;
       -ms-user-select: none;
       user-select: none;
+    }
+
+    :host([logo-only]) ul {
+      display: none;
     }
 
     .logo {
@@ -173,52 +198,98 @@
   </style>
 
   <div class="logo"><img src="/img/logo.svg" alt="TinyPilot logo" /></div>
-  <ul class="groups header-item">
-    <li class="group">
-      <a>System</a>
-      <ul class="items">
-        <li class="item pro-badge">
-          <a data-onclick-event="mass-storage-dialog-requested"
+
+  <ul
+    class="groups header-item prevent-flickering-on-page-load"
+    id="menu"
+    role="menubar"
+  >
+    <!-- The “System” menu is used for managing the TinyPilot device itself. -->
+    <li class="group" role="presentation">
+      <a role="menuitem">System</a>
+      <ul class="items" role="group">
+        <li class="item pro-badge" role="presentation">
+          <a data-onclick-event="mass-storage-dialog-requested" role="menuitem"
             >Virtual Media</a
           >
         </li>
-        <li class="item">
-          <a data-onclick-event="update-dialog-requested">Update</a>
+        <li class="item" role="presentation">
+          <a data-onclick-event="update-dialog-requested" role="menuitem"
+            >Update</a
+          >
         </li>
-        <li class="item">
-          <a data-onclick-event="change-hostname-dialog-requested">Hostname</a>
+        <li class="item subgroup" role="presentation">
+          <a role="menuitem">Networking</a>
+          <ul class="items" role="group">
+            <li class="item" role="presentation">
+              <a
+                data-onclick-event="change-hostname-dialog-requested"
+                role="menuitem"
+                >Hostname</a
+              >
+            </li>
+            <li class="item" role="presentation">
+              <a data-onclick-event="wifi-dialog-requested" role="menuitem"
+                >Wi-Fi</a
+              >
+            </li>
+            <li class="item pro-badge" role="presentation">
+              <a data-onclick-event="static-ip-dialog-requested" role="menuitem"
+                >Static IP</a
+              >
+            </li>
+            <li class="item" role="presentation">
+              <a
+                data-onclick-event="network-status-dialog-requested"
+                role="menuitem"
+                >Status</a
+              >
+            </li>
+          </ul>
         </li>
-        <li class="item">
-          <a data-onclick-event="video-settings-dialog-requested"
+        <li class="item" role="presentation">
+          <a
+            data-onclick-event="video-settings-dialog-requested"
+            role="menuitem"
             >Video Settings</a
           >
         </li>
-        <li class="item">
-          <a data-onclick-event="debug-logs-dialog-requested">Logs</a>
+        <li class="item" role="presentation">
+          <a data-onclick-event="debug-logs-dialog-requested" role="menuitem"
+            >Logs</a
+          >
         </li>
-        <li class="item">
-          <a data-onclick-event="shutdown-dialog-requested">Power</a>
+        <li class="item" role="presentation">
+          <a data-onclick-event="shutdown-dialog-requested" role="menuitem"
+            >Power</a
+          >
         </li>
       </ul>
     </li>
 
-    <li class="group">
-      <a>Actions</a>
-      <ul class="items">
-        <li class="item">
-          <a data-onclick-event="paste-requested">Paste</a>
+    <!-- The “Actions” menu contains operations which are carried out against
+         the connected target machine. -->
+    <li class="group" role="presentation">
+      <a role="menuitem">Actions</a>
+      <ul class="items" role="group">
+        <li class="item" role="presentation">
+          <a data-onclick-event="paste-dialog-requested" role="menuitem"
+            >Paste</a
+          >
         </li>
-        <li class="item">
-          <a id="screenshot-btn" href="/snapshot">Screenshot</a>
+        <li class="item" role="presentation">
+          <a id="screenshot-btn" href="/snapshot" role="menuitem">Screenshot</a>
         </li>
-        <li class="item pro-badge">
-          <a data-onclick-event="wake-on-lan-dialog-requested">Wake on LAN</a>
+        <li class="item pro-badge" role="presentation">
+          <a data-onclick-event="wake-on-lan-dialog-requested" role="menuitem"
+            >Wake on LAN</a
+          >
         </li>
-        <li class="item subgroup">
-          <a>Keyboard Shortcuts</a>
-          <ul class="items">
-            <li class="item">
-              <a data-onclick-event="ctrl-alt-del-requested"
+        <li class="item subgroup" role="presentation">
+          <a role="menuitem">Keyboard Shortcuts</a>
+          <ul class="items" role="group">
+            <li class="item" role="presentation">
+              <a data-onclick-event="ctrl-alt-del-requested" role="menuitem"
                 >Ctrl + Alt + Del</a
               >
             </li>
@@ -227,48 +298,64 @@
       </ul>
     </li>
 
-    <li class="group">
-      <a>View</a>
-      <ul class="items">
-        <li class="item subgroup">
-          <a>Cursor</a>
-          <ul id="cursor-list" class="items">
+    <!-- The “View” menu contains UI-related settings, which are local to the
+         requesting client. -->
+    <li class="group" role="presentation">
+      <a role="menuitem">View</a>
+      <ul class="items" role="group">
+        <li class="item subgroup" role="presentation">
+          <a role="menuitem">Cursor</a>
+          <ul id="cursor-list" class="items" role="group">
             <!-- JavaScript populates this list dynamically. -->
           </ul>
         </li>
-        <li class="item" id="keyboard-menu-item">
-          <a data-onclick-event="keyboard-visibility-toggled">Show Keyboard</a>
+        <li class="item" id="keyboard-menu-item" role="presentation">
+          <a data-onclick-event="keyboard-visibility-toggled" role="menuitem"
+            >Show Keyboard</a
+          >
         </li>
-        <li class="item" id="keystroke-history-menu-item">
-          <a data-onclick-event="keystroke-history-toggled"
+        <li class="item" id="keystroke-history-menu-item" role="presentation">
+          <a data-onclick-event="keystroke-history-toggled" role="menuitem"
             >Enable Key History</a
           >
         </li>
-        <li class="item">
-          <a data-onclick-event="fullscreen-requested">Full Screen</a>
+        <li class="item" role="presentation">
+          <a data-onclick-event="fullscreen-requested" role="menuitem"
+            >Full Screen</a
+          >
+        </li>
+        <li class="item" role="presentation">
+          <a data-onclick-event="dedicated-window-requested" role="menuitem"
+            >Dedicated Window</a
+          >
         </li>
       </ul>
     </li>
 
-    <li class="group">
-      <a>Help</a>
-      <ul class="items">
-        <li class="item">
-          <a data-onclick-event="about-dialog-requested">About</a>
+    <!-- The ”Help” menu contains miscellaneous, subsidiary links and info. -->
+    <li class="group" role="presentation">
+      <a role="menuitem">Help</a>
+      <ul class="items" role="group">
+        <li class="item" role="presentation">
+          <a data-onclick-event="about-dialog-requested" role="menuitem"
+            >About</a
+          >
         </li>
-        <li class="item external-link">
+        <li class="item external-link" role="presentation">
           <a
             href="https://tinypilotkvm.com/product/tinypilot-pro?ref=tinypilot-app"
             rel="noopener noreferrer"
             target="_blank"
+            role="menuitem"
             >Upgrade to Pro</a
           >
         </li>
-        <li class="item external-link">
+        <li class="item external-link" role="presentation">
           <a
             href="https://github.com/tiny-pilot/tinypilot"
             rel="noopener noreferrer"
             target="_blank"
+            role="menuitem"
             >Github</a
           >
         </li>
@@ -287,6 +374,13 @@
         connectedCallback() {
           this.attachShadow({ mode: "open" }).appendChild(
             template.content.cloneNode(true)
+          );
+
+          this._undoInitialFlickerPrevention =
+            this._undoInitialFlickerPrevention.bind(this);
+          document.addEventListener(
+            "DOMContentLoaded",
+            this._undoInitialFlickerPrevention
           );
 
           // Handle “simple”/standard menu items that just emit a custom event
@@ -321,6 +415,7 @@
           for (const cursorOption of screenCursorOptions.splice(1)) {
             const cursorLink = document.createElement("a");
             cursorLink.setAttribute("href", "#");
+            cursorLink.setAttribute("role", "menuitem");
             cursorLink.innerText = cursorOption;
             cursorLink.addEventListener("click", (evt) => {
               this.emitCustomEvent("cursor-selected", { cursor: cursorOption });
@@ -330,8 +425,16 @@
             listItem.appendChild(cursorLink);
             listItem.classList.add("cursor-option", "item");
             listItem.setAttribute("cursor", cursorOption);
+            listItem.setAttribute("role", "presentation");
             cursorList.appendChild(listItem);
           }
+        }
+
+        disconnectedCallback() {
+          document.removeEventListener(
+            "DOMContentLoaded",
+            this._undoInitialFlickerPrevention
+          );
         }
 
         set isKeyboardVisible(isVisible) {
@@ -365,6 +468,13 @@
               newCursor === cursorListItem.getAttribute("cursor")
             );
           }
+        }
+
+        _undoInitialFlickerPrevention() {
+          // (See CSS comment in .prevent-flickering-on-page-load class.)
+          this.shadowRoot
+            .getElementById("menu")
+            .classList.remove("prevent-flickering-on-page-load");
         }
       }
     );

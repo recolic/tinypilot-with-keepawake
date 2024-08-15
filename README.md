@@ -26,11 +26,11 @@ Turn your Raspberry Pi into a browser-based KVM.
 
 TinyPilot official hardware packages give you everything you need to run TinyPilot and allows you to fund TinyPilot's development for future improvements.
 
-### [TinyPilot Voyager 2](https://tinypilotkvm.com/product/tinypilot-voyager2)
+### [TinyPilot Voyager 2a](https://tinypilotkvm.com/product/tinypilot-voyager2a)
 
-[![Photo of TinyPilot Voyager 2](https://raw.githubusercontent.com/tiny-pilot/tinypilot/master/readme-assets/voyager2-600px.png)](https://tinypilotkvm.com/product/tinypilot-voyager2)
+[![Photo of TinyPilot Voyager 2a](https://raw.githubusercontent.com/tiny-pilot/tinypilot/master/readme-assets/voyager2a-600px.webp)](https://tinypilotkvm.com/product/tinypilot-voyager2a)
 
-Voyager 2 is TinyPilot's professional-grade KVM over IP device. Its quiet, compact design makes it a great fit for professional environments such as offices, data centers, and server rooms.
+Voyager 2a is TinyPilot's professional-grade KVM over IP device. Its quiet, compact design makes it a great fit for professional environments such as offices, data centers, and server rooms.
 
 ## Build your own
 
@@ -53,7 +53,7 @@ See ["TinyPilot: Build a KVM Over IP for Under \$100"](https://mtlynch.io/tinypi
 
 ## Pre-requisites
 
-- Raspberry Pi OS Buster or later (32-bit)
+- Raspberry Pi OS Bullseye (32-bit)
 - python3-venv
 
 ## Simple installation
@@ -69,18 +69,11 @@ curl \
   sudo reboot
 ```
 
-The installation process:
-
-- Creates a service account for TinyPilot with limited priviliges.
-- Installs TinyPilot as a systemd service so it runs automatically on every boot.
-- Installs and configures TinyPilot's dependencies:
-  - nginx, which listens on 0.0.0.0:80
-  - uStreamer, which listens on 127.0.0.1:8001
-- Installs TinyPilot to the `/opt/tinypilot` directory.
-
 When your Pi reboots, you should be able to access TinyPilot by visiting your Pi hostname in the browser. For example, if your device is named `raspberrypi`:
 
 - [http://raspberrypi/](http://raspberrypi/)
+
+If you're using an [HDMI to CSI capture chip](https://github.com/tiny-pilot/tinypilot/wiki/HDMI-Capture-Devices#toshiba-tc358743-capture-devices) (such as with a TinyPilot Voyager series device), see [the additional configuration steps](https://github.com/tiny-pilot/tinypilot/wiki/Installation-Options#example-tc358743-hdmi-to-csi-capture-chip) required for video capture.
 
 ## Developer installation
 
@@ -89,15 +82,6 @@ See the [CONTRIBUTING](CONTRIBUTING.md) file.
 ## Other installation options
 
 - [Advanced installation options](https://github.com/tiny-pilot/tinypilot/wiki/Installation-Options#advanced-installation)
-- [Remote installation via Ansible](https://github.com/tiny-pilot/tinypilot/wiki/Installation-Options#remote-installation)
-
-## Updates
-
-To update to the latest version of TinyPilot, run the update script:
-
-```bash
-/opt/tinypilot/scripts/upgrade && sudo reboot
-```
 
 ## Diagnostics
 
@@ -130,7 +114,6 @@ If you're interested in seeing what's happening with the project at a granular l
 ## See also
 
 - [TinyPilot Wiki](https://github.com/tiny-pilot/tinypilot/wiki): Guides for tasks related to TinyPilot.
-- [TinyPilot Ansible Role](ansible-role/README.md): Use [Ansible](https://docs.ansible.com/ansible/latest/index.html) to install TinyPilot and all dependencies as a systemd service.
 
 ## Acknowledgments
 
@@ -141,7 +124,7 @@ TinyPilot would not be possible without the excellent and generous work from man
 - [vdesktop](https://github.com/Botspot/vdesktop)
 - [litestream](https://litestream.io)
 - [Raspberry Pi](https://www.raspberrypi.org/)
-- [nginx](https://nginx.org/) and [ansible-role-nginx](https://github.com/geerlingguy/ansible-role-nginx)
+- [nginx](https://nginx.org/)
 
 ## Mailing list
 

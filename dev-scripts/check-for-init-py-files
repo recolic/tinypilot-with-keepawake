@@ -1,8 +1,8 @@
 #!/bin/bash
-
+#
 # Test if __init__.py file exists in directory containing .py files.
 
-# Exit build script on first failure.
+# Exit on first failure.
 set -e
 # Exit on unset variable.
 set -u

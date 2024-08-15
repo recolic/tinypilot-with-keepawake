@@ -2,8 +2,6 @@
 
 The bundler is responsible for creating a single-file distributable called “TinyPilot bundle”.
 
-Note that this repository (`tinypilot`) contains the source code of the TinyPilot web service. While the web service is the main component of the TinyPilot software, a complete installation has other TinyPilot-specific dependencies, which reside in separate repositories.
-
 ## Components
 
 ### Bundle
@@ -14,13 +12,10 @@ The [`create-bundle`](create-bundle) script generates the bundle from the [`bund
 
 - **The TinyPilot web service**
   - The root [`Dockerfile`](../Dockerfile) packs the TinyPilot web service as a Debian package from the source files.
-- **Several Ansible roles**
-  - The main role is [`ansible-role-tinypilot`](../ansible-role), which then fetches the roles for [nginx](https://github.com/tiny-pilot/ansible-role-nginx) and [ustreamer](https://github.com/tiny-pilot/ansible-role-ustreamer).
-  - The Ansible roles are responsible for configuring TinyPilot and its dependencies on the device.
 - **Metadata**
   - E.g., version/build information
 
-The entrypoint for installing the bundle is the [`bundle/install`](bundle/install) script. It does some bootstrapping and then hands over to [`ansible-role-tinypilot`](../ansible-role), which contains most of the actual installation logic.
+The entrypoint for installing the bundle is the [`bundle/install`](bundle/install) script. It contains the installation logic that installs TinyPilot and all of its dependencies.
 
 ### Gatekeeper Web Service
 
@@ -35,9 +30,9 @@ Our CircleCI pipeline automatically builds and uploads new bundles to Gatekeeper
 
 [`get-tinypilot.sh`](../get-tinypilot.sh) (`get-tinypilot-pro.sh` for Pro) facilitates the installation process.
 
-For installing TinyPilot on the device, `get-tinypilot.sh` unpacks the bundle to `/opt/tinypilot-updater` and invokes the [`install`](bundle/install) script.
+For installing TinyPilot on the device, `get-tinypilot.sh` unpacks the bundle to `/mnt/tinypilot-installer` and invokes the [`install`](bundle/install) script.
 
-Note that it’s necessary to persist the bundle folder on the device, because the application still relies on the Ansible roles being present for applying system changes. (We might refactor this in the future.)
+To avoid excessive writes to the filesystem, the bundle is downloaded and unpacked on a volatile RAMdisk mounted at `/mnt/tinypilot-installer`.
 
 On a fresh device, the user runs `get-tinypilot.sh` manually. On a device with an existing TinyPilot installation, TinyPilot’s update process invokes `get-tinypilot.sh` “under the hood”.
 
@@ -50,14 +45,14 @@ The installation procedure consists of the following steps. The procedure is sli
 ### TinyPilot Community
 
 1. `get-tinypilot.sh` retrieves latest bundle from Gatekeeper.
-1. `get-tinypilot.sh` unpacks bundle to `/opt/tinypilot-updater` and invokes `install` script.
+2. `get-tinypilot.sh` unpacks bundle and invokes `install` script.
 
 ### TinyPilot Pro
 
 1. `get-tinypilot-pro.sh` checks whether the caller supplied a version flag.
    - If the version flag is absent, `get-tinypilot-pro.sh` asks Gatekeeper what the latest available version is.
 1. `get-tinypilot-pro.sh` requests the bundle with the desired version from Gatekeeper.
-1. `get-tinypilot-pro.sh` script unpacks bundle to `/opt/tinypilot-updater` and invokes `install` script.
+1. `get-tinypilot-pro.sh` unpacks bundle and invokes `install` script.
 
 ## Update Process
 

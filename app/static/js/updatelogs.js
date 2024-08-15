@@ -1,3 +1,8 @@
+// Suppress ESLint warnings about undefined variables.
+// `io` is defined by the Socket.IO library, which is globally available on the
+// page.
+/* global io */
+
 /**
  * Streams the TinyPilot update logs via a SocketIO connection.
  * @requires socketio
@@ -11,10 +16,10 @@ export class UpdateLogsStreamer {
 
   /**
    * @function handleNewLogs
-   * @param {string} logs The newly received logs.
+   * @param {string} logs - The newly received logs.
    *
    * Run a function when new logs are received.
-   * @param {handleNewLogs} fn The function that handles the new logs.
+   * @param {handleNewLogs} fn - The function that handles the new logs.
    */
   onNewLogs(fn) {
     // Register the event listener.

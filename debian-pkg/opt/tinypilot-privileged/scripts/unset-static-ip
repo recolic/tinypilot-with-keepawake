@@ -1,39 +1,27 @@
 #!/bin/bash
 #
-# Reverts changes made by the set-static-ip script.
+# Reverts any changes made by the set-static-ip script.
 
 # Exit on first error.
 set -e
 
 print_help() {
   cat << EOF
-Usage: ${0##*/} [--interface name]
+Usage: ${0##*/} [--quiet] [--help]
 
-Reverts changes made by the set-static-ip script.
-  --interface name: Optional. The interface to configure (e.g., eth0). Defaults
-                    to eth0.
-  --quiet:          Optional. Surpress the confirmation message.
+Reverts any changes made by the set-static-ip script.
+  --quiet:          Suppress the confirmation message.
   --help:           Display this help text.
-
-Examples:
-
-1. Unset the static IP address on the default eth0 interface.
-unset-static-ip
-
-2. Quietly unset a static IP address on the wlan0 interface.
-unset-static-ip \\
-  --interface wlan0
-
 EOF
 }
 
-readonly SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-readonly CONFIG_FILE="/etc/dhcpcd.conf"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+readonly SCRIPT_DIR
 # shellcheck source=lib/markers.sh
 . "${SCRIPT_DIR}/lib/markers.sh"
 
 # Parse command-line arguments.
-if ! NEW_ARGS=$(getopt -q -o "" -l "quiet,interface:" -- "$@"); then
+if ! NEW_ARGS=$(getopt -q -o "" -l "quiet,help,interface:" -- "$@"); then
   print_help
   exit 1
 fi
@@ -47,15 +35,13 @@ while true; do
       shift 1
       ;;
     --interface)
-      if [[ -z "${INTERFACE}" ]] ; then
-        readonly INTERFACE="$2"
-      else
-        echo "Only one interface should be provided using --interface" >&2
-        echo "For help on using this tool:" >&2
-        echo "  unset-static-ip --help" >&2
-        exit 1
-      fi
-      shift 2
+      # See https://github.com/tiny-pilot/tinypilot/issues/1710#issuecomment-1885680744.
+      echo 'The --interface flag is no longer supported' >&2
+      exit 1
+      ;;
+    --help)
+      print_help
+      exit
       ;;
     --)
       shift
@@ -63,11 +49,6 @@ while true; do
       ;;
   esac
 done
-
-# Default interface.
-if [[ -z "${INTERFACE}" ]] ; then
-  readonly INTERFACE="eth0"
-fi
 
 # Default to not quiet.
 if [[ -z "${QUIET}" ]] ; then
@@ -77,48 +58,12 @@ fi
 # Exit on unset variable
 set -u
 
-# Remove any existing auto-generated configuration for the interface.
-dhcpcd_original=()
-section=()
-interface_matched="false"
-while IFS= read -r line; do
-  if [[ "${#section[@]}" -ne 0 ]] && [[ "${line}" == "${MARKER_END}" ]]; then
-    section+=("${line}")
-    if [[ "${interface_matched}" == "false" ]] ; then
-      dhcpcd_original=("${dhcpcd_original[@]}" "${section[@]}")
-    fi
-    section=()
-    interface_matched="false"
-    continue
-  fi
-  if [[ "${#section[@]}" -ne 0 ]] || [[ "${line}" == "${MARKER_START}" ]]; then
-    if [[ "${line}" == "interface ${INTERFACE}" ]] ; then
-      interface_matched="true"
-    fi
-    section+=("${line}")
-    continue
-  fi
-  dhcpcd_original+=("${line}")
-done < "${CONFIG_FILE}"
+# Remove any existing marker sections from the config file.
+"${SCRIPT_DIR}/strip-marker-sections" /etc/dhcpcd.conf
 
-if [[ "${#section[@]}" -ne 0 ]] ; then
-  echo "The contents of ${CONFIG_FILE} are not in the expected format." >&2
-  echo "Auto-generated changes may have been manually edited." >&2
-  echo "" >&2
-  echo "Remove the relevant configuration manually to proceed." >&2
-  exit 1
-fi
+# Apply changes.
+"${SCRIPT_DIR}/apply-static-ip"
 
-# Convert array of lines to a single string.
-readonly OLD_CONFIG_FILE=$(printf "%s\n" "${dhcpcd_original[@]}")
-
-# Write original file contents back to the file.
-echo "${OLD_CONFIG_FILE}" | sudo tee "${CONFIG_FILE}" > /dev/null
-
-# Changes require a reboot so prompt the user.
 if [[ "${QUIET}" == "false" ]] ; then
   echo "Any changes made by the set-static-ip script have been reverted."
-  echo "  Interface: ${INTERFACE}"
-  echo ""
-  echo "Reboot your TinyPilot device to apply the changes."
 fi

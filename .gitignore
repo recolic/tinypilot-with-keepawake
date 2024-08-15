@@ -67,7 +67,6 @@ venv/
 
 # Node
 node_modules
-package-lock.json
 
 # Mac OS
 *.DS_Store
@@ -75,3 +74,8 @@ package-lock.json
 
 # Debian package builds
 debian-pkg/releases/
+
+# End-to-End test data
+e2e-results/
+/playwright-report/
+/playwright/.cache/

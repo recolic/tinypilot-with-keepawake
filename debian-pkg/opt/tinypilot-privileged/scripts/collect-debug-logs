@@ -46,7 +46,7 @@ while getopts "hq" opt; do
     esac
 done
 
-if [[ "${EUID}" -ne 0 ]]; then
+if (( "${EUID}" != 0 )); then
   echo "This script requires root privileges." >&2
   echo "Please re-run with sudo:" >&2
   echo "  sudo ${0}" >&2
@@ -71,11 +71,17 @@ cd /opt/tinypilot && \
 
 print_info "Checking uStreamer version..."
 cd /opt/ustreamer && \
-  printf "uStreamer version: %s\n" "$(/opt/ustreamer/ustreamer --version)" >> "${LOG_FILE}"
+  printf "uStreamer version: %s\n\n" "$(/opt/ustreamer/ustreamer --version)" \
+    >> "${LOG_FILE}"
 
-print_info "Checking OS version..."
+echo "System information" >> "${LOG_FILE}"
+
+print_info "Checking system information..."
 {
-  printf "OS version: %s\n" "$(uname -a)"
+  printf "OS version: %s\n" "$(uname --all)"
+  printf "Kernel architecture: %s\n" "$(uname --machine)"
+  printf "Userland architecture: %s (%s)\n" "$(dpkg --print-architecture)" \
+    "$(getconf LONG_BIT)-bit"
   printf "Distribution name: %s\n" "$(lsb_release --id --short)"
   printf "Distribution version: %s\n" "$(lsb_release --release --short)"
   printf "\n"
@@ -93,7 +99,7 @@ echo "TinyPilot state" >> "${LOG_FILE}"
 print_info "Checking if filesystem is read-only..."
 {
   READ_ONLY_FILESYSTEM="off"
-  if grep -q "boot=overlay" /proc/cmdline ; then
+  if grep --quiet "boot=overlay" /proc/cmdline ; then
     READ_ONLY_FILESYSTEM="on"
   fi
   readonly READ_ONLY_FILESYSTEM
@@ -103,24 +109,75 @@ print_info "Checking if filesystem is read-only..."
 print_info "Checking if SSH is enabled..."
 {
   SSH_STATUS="disabled"
-  if /opt/tinypilot/scripts/is-ssh-enabled ; then
+  if runuser tinypilot --command '/opt/tinypilot/scripts/is-ssh-enabled' ; then
     SSH_STATUS="enabled"
   fi
   readonly SSH_STATUS
   echo "SSH access: ${SSH_STATUS}"
 } >> "${LOG_FILE}"
 
+print_info "Checking network interfaces..."
+{
+  echo "Network interfaces:"
+  readonly INTERFACES_ROOT="/sys/class/net"
+  for interface_path in "${INTERFACES_ROOT}"/* ; do
+    ifname="${interface_path##*/}"
+    echo "  ${ifname} ($(cat ${INTERFACES_ROOT}/"${ifname}"/operstate))"
+  done
+} >> "${LOG_FILE}"
+
+print_info "Checking if mouse jiggler is enabled..."
+{
+  MOUSE_JIGGLER_STATUS="disabled"
+  if [[ -e /etc/cron.d/tinypilot-mouse-jiggle ]]; then
+    MOUSE_JIGGLER_STATUS="enabled"
+  fi
+  readonly MOUSE_JIGGLER_STATUS
+  echo "Mouse jiggler: ${MOUSE_JIGGLER_STATUS}"
+} >> "${LOG_FILE}"
+
 print_info "Checking temperature..."
-printf "%s\n" "$(vcgencmd measure_temp)" >> "${LOG_FILE}"
+{
+  vcgencmd measure_temp | sed 's/temp=/CPU Temperature: /g'
+} >> "${LOG_FILE}"
 
 print_info "Checking throttled state..."
-printf "%s\n\n" "$(vcgencmd get_throttled)" >> "${LOG_FILE}"
+{
+  CPU_THROTTLED="yes"
+  if vcgencmd get_throttled | grep --line-regexp --quiet "throttled=0x0" ; then
+    CPU_THROTTLED="no"
+  fi
+  readonly CPU_THROTTLED
+  echo "CPU throttled since boot: ${CPU_THROTTLED}"
+  printf "\n"
+} >> "${LOG_FILE}"
 
 print_info "Checking for voltage issues..."
 {
-  echo "voltage logs"
-  journalctl -xe | grep -i "voltage"
-  printf "\n"
+  printf "Voltage issues: "
+  if LAST_VOLTAGE_LINE="$(journalctl --quiet --reverse --lines=1 --grep='voltage')" ; then
+    printf "yes - %s" "${LAST_VOLTAGE_LINE}"
+  else
+    printf "no"
+  fi
+  printf "\n\n"
+} >> "${LOG_FILE}"
+
+print_info "Checking TinyPilot streaming mode..."
+{
+  echo "Streaming mode"
+  echo "Selected mode: $(runuser tinypilot --command '/opt/tinypilot/scripts/streaming-mode')"
+  printf "Current mode: "
+  # H264 mode is considered active when the last Janus video log line contains
+  # "Memsink opened; reading frames".
+  # https://github.com/tiny-pilot/ustreamer/blob/89fd83bfc187ed592e9582be077fa1a005098532/janus/src/plugin.c#L148
+  if LAST_JANUS_VIDEO_LINE="$(journalctl --unit janus.service --quiet --reverse --lines 1 --grep 'ustreamer/video')" &&
+      [[ "${LAST_JANUS_VIDEO_LINE}" =~ 'Memsink opened; reading frames' ]]; then
+    printf "H264"
+  else
+    printf "MJPEG"
+  fi
+  printf "\n\n"
 } >> "${LOG_FILE}"
 
 print_info "Checking TinyPilot settings..."
@@ -140,14 +197,14 @@ print_info "Checking TinyPilot configuration..."
 print_info "Checking TinyPilot logs..."
 {
   printf "TinyPilot logs\n"
-  journalctl -u tinypilot | tail -n 200
+  journalctl --unit tinypilot | tail --lines 200
   printf "\n"
 } >> "${LOG_FILE}"
 
 print_info "Checking TinyPilot updater logs..."
 {
   printf "TinyPilot update logs\n"
-  "$(dirname "$0")/read-update-log" | tail -n 200
+  "$(dirname "$0")/read-update-log" | tail --lines 200
   printf "\n"
 } >> "${LOG_FILE}"
 
@@ -161,18 +218,18 @@ print_info "Checking uStreamer configuration..."
 print_info "Checking uStreamer logs..."
 {
   printf "uStreamer logs\n"
-  journalctl -u ustreamer | tail -n 80
+  journalctl --unit ustreamer | tail --lines 80
   printf "\n"
 } >> "${LOG_FILE}"
 
 print_info "Checking nginx logs..."
 {
   echo "nginx logs"
-  journalctl -u nginx
+  journalctl --unit nginx
   printf "\n\n"
-  tail -n 100 /var/log/nginx/error.log
+  tail --lines 100 /var/log/nginx/error.log
   printf "\n\n"
-  tail -n 30 /var/log/nginx/access.log
+  tail --lines 30 /var/log/nginx/access.log
   printf "\n"
 } >> "${LOG_FILE}"
 
@@ -203,6 +260,6 @@ else
     print_info "Log file not uploaded."
     print_info "If you decide to share it, run:"
     print_info ""
-    print_info "  curl -F \"_=@${LOG_FILE}\" ${LOG_UPLOAD_URL}"
+    print_info "  curl --form \"_=@${LOG_FILE}\" ${LOG_UPLOAD_URL}"
     print_info ""
 fi

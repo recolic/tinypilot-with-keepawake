@@ -1,5 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+  <!-- This page is available when you launch TinyPilot in debug mode by running
+
+           ./dev-scripts/serve-dev
+
+       The page will be available at:
+
+           http://localhost:8000/styleguide -->
   <head>
     <meta charset="utf-8" />
     <title>TinyPilot Styleguide</title>
@@ -50,7 +57,7 @@
         <img src="/img/logo.svg" alt="Tiny Pilot" />
       </div>
 
-      <h1 style="text-align: center;">Style Guide</h1>
+      <h1 style="text-align: center">Style Guide</h1>
       <p>
         This style guide is an ongoing collection of all things visual that make
         up the brand, such as colours, fonts, patterns or UI components.
@@ -74,83 +81,84 @@
       <div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-metallic-dark);"
+          style="background-color: var(--brand-metallic-dark)"
         ></div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-metallic-medium);"
+          style="background-color: var(--brand-metallic-medium)"
         ></div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-metallic-light);"
+          style="background-color: var(--brand-metallic-light)"
         ></div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-metallic-bright);"
+          style="background-color: var(--brand-metallic-bright)"
         ></div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-metallic-brighter);"
+          style="background-color: var(--brand-metallic-brighter)"
         ></div>
-        <br style="clear: both;" />
+        <br style="clear: both" />
         <div
           class="colorcard"
-          style="background-color: var(--brand-blue-dark);"
-        ></div>
-        <div
-          class="colorcard"
-          style="background-color: var(--brand-blue);"
+          style="background-color: var(--brand-blue-dark)"
         ></div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-blue-light);"
-        ></div>
-        <br style="clear: both;" />
-        <div
-          class="colorcard"
-          style="background-color: var(--brand-red-dark);"
+          style="background-color: var(--brand-blue)"
         ></div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-red);"
+          style="background-color: var(--brand-blue-light)"
         ></div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-red-light);"
+          style="background-color: var(--brand-blue-lighter)"
+        ></div>
+        <br style="clear: both" />
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-red-dark)"
+        ></div>
+        <div class="colorcard" style="background-color: var(--brand-red)"></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-red-light)"
         ></div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-red-background);"
+          style="background-color: var(--brand-red-background)"
         ></div>
-        <br style="clear: both;" />
+        <br style="clear: both" />
         <div
           class="colorcard"
-          style="background-color: var(--brand-green-dark);"
-        ></div>
-        <div
-          class="colorcard"
-          style="background-color: var(--brand-green);"
+          style="background-color: var(--brand-green-dark)"
         ></div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-green-light);"
-        ></div>
-        <br style="clear: both;" />
-        <div
-          class="colorcard"
-          style="background-color: var(--brand-orange-dark);"
+          style="background-color: var(--brand-green)"
         ></div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-orange-light);"
+          style="background-color: var(--brand-green-light)"
+        ></div>
+        <br style="clear: both" />
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-orange-dark)"
         ></div>
         <div
           class="colorcard"
-          style="background-color: var(--brand-sand-light);"
+          style="background-color: var(--brand-orange-light)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-sand-light)"
         ></div>
       </div>
 
-      <div style="clear: both;"></div>
+      <div style="clear: both"></div>
 
       <h2 class="section">Buttons</h2>
       <ul>
@@ -162,7 +170,10 @@
         <li>
           If ever feasible, call-to-action buttons should only appear once. If
           there are multiple regular actions side by side, the “regular” action
-          button should be used.
+          button should be used. As a rule of thumb: the call-to-action button
+          terminates a dialog by triggering its main function; whereas the
+          action button executes secondary operations <em>within</em> a dialog,
+          while keeping the dialog open.
         </li>
         <li>
           Buttons should be disabled if it’s obvious that an operation cannot be
@@ -191,9 +202,7 @@
       <button class="btn-danger" disabled>(disabled)</button>
       <p>For destructive call-to-actions like “delete” or “shutdown”.</p>
       <h3>Dropdown Button</h3>
-      <p>
-        A button that groups multiple related actions.
-      </p>
+      <p>A button that groups multiple related actions.</p>
       <dropdown-button>
         <button slot="button" class="btn-action">
           Dropdown
@@ -230,6 +239,19 @@
       <p>
         <span class="btn-text">Click Me</span>
       </p>
+      <h3>Button for External Links</h3>
+      <p>
+        If a button opens an external website, then it should be an
+        “Action”-type button with an “External Link” icon on the right-hand
+        side. External links should open in a new tab by default.
+      </p>
+      <a
+        href="about:blank"
+        target="_blank"
+        class="btn btn-action btn-external-link"
+        rel="noopener noreferer"
+        >Open Link</a
+      >
 
       <h2 class="section">Input</h2>
       <ul>
@@ -245,26 +267,84 @@
           <pre>autocapitalize="off"</pre>
           <pre>spellcheck="false"</pre>
         </li>
+        <li>
+          If there is a call-to-action button associated with an input field,
+          then pressing the “Enter”/“Return” key on the keyboard should trigger
+          the call-to-action. The behaviour should be the same as if the button
+          was clicked with the mouse; that implies that the call-to-action
+          shouldn’t trigger in case the button is in disabled state.
+        </li>
+        <li>
+          If the input value is required to adhere to a certain format, use the
+          placeholder attribute to help the user intuitively grasp the expected
+          format. The placeholder text should be a made-up but semantically
+          correct value. The placeholder should make it obvious to the reader
+          that it’s just an example value by containing words like “example” or
+          artificial sequences like “1234”. Omit prefixes such as “<span
+            class="monospace"
+            >e.g., </span
+          >”.<br />
+          A placeholder is not needed for input fields that expect free text, or
+          when the validation rules are too trivial to allow for expressive or
+          meaningful demo usage.
+        </li>
+        <li>
+          Make the width of the input field so that it’s reasonably coherent
+          with the expected length of the input copy. Note, though, that there
+          might be other factors for determining a good width of the input
+          field, such as visual alignment with other nearby UI elements.
+        </li>
       </ul>
-      <h3>For Regular Text</h3>
-      <div>
+      <p>
+        <strong>Example:</strong><br />
+        Your Website:
         <input
           type="text"
-          style="width: 15rem;"
-          value="My name is Pilot. Tiny Pilot."
+          placeholder="https://example.org"
+          style="width: 15em; margin-left: 0.5em"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
         />
-        <button>Send</button>
-      </div>
-
-      <h3>For Monospace Text</h3>
+      </p>
+      <h3 class="section">Select Field</h3>
       <p>
-        Used for entering “technical” values, e.g. IP addresses.
+        For input fields that only allow for a certain, predefined set of values
+        or options, you can use a select field instead of a free text field.
+      </p>
+      <div>
+        <span>Choose Size:</span>
+        <select style="margin-left: 0.5em">
+          <option>Large</option>
+          <option>Medium</option>
+          <option>Small</option>
+        </select>
+      </div>
+      <p>
+        Unless there is a sensible default option, or for additional
+        clarification, you can use a disabled dummy option as first item to
+        imitate a placeholder text.
+      </p>
+      <h3>Font Usage</h3>
+      <p>
+        Use the default font for input fields that expect “free” or regular
+        text. Use the monospace font for “technical” values, to help the user
+        examine the input copy character by character (e.g., IP addresses).
       </p>
       <div>
         <input
           type="text"
+          style="width: 15rem"
+          value="My name is Pilot. Tiny Pilot."
+        />
+        <button>Send</button>
+      </div>
+      <div>
+        <input
+          type="text"
           class="monospace"
-          style="width: 15rem;"
+          style="width: 15rem"
           value="192.168.0.1"
         />
         <button>Send</button>
@@ -272,8 +352,8 @@
 
       <h2 class="section">Inline Message</h2>
       <p>
-        When we want to display a feedback message (error or warning), we can
-        use the inline-message component:
+        When we want to display a prominent feedback message, we can use the
+        inline-message component:
       </p>
       <inline-message variant="error" show>
         <strong>Error:</strong> We use inline errors for “minor” issues that the
@@ -284,6 +364,13 @@
         <strong>Warning:</strong> We use warnings to raise attention about
         potential problems. In contrast to errors, these don’t necessarily
         require fixing for the user to proceed.
+      </inline-message>
+      <br />
+      <inline-message variant="info" show>
+        <strong>Info:</strong> We use info messages to highlight important
+        information to the user, which is special enough to warrant more
+        prominent styling than just regular text. Info messages are mostly
+        informative, and while they may prompt action, they never require it.
       </inline-message>
       <p>Some notes about usage:</p>
       <ul>
@@ -320,16 +407,21 @@
       </button>
       <overlay-panel id="overlay-with-primary-action">
         <h3>Overlay with Primary Action</h3>
-        <div>
+        <p>
           This overlay style is used for linear and straightforward flows that
-          have a single purpose or end state, like a prompt or confirmation. It
-          contains a call-to-action button and a cancel button (in that order)
-          at the bottom. When clicked, they also terminate the dialog.
-        </div>
+          have a single purpose or end state, like a prompt or confirmation.
+        </p>
+        <p>
+          In the bottom row, the overlay should contain a call-to-action button,
+          and a button for aborting the flow.<br />
+          The button for aborting the flow should be labelled “Close”, and it
+          should be the rightmost one. We deliberately don’t say “Cancel”, to be
+          transparent that clicking the button will terminate the overlay.
+        </p>
         <button class="close-overlay-with-primary-action btn-success">
           Confirm
         </button>
-        <button class="close-overlay-with-primary-action">Cancel</button>
+        <button class="close-overlay-with-primary-action">Close</button>
       </overlay-panel>
       <script type="module">
         import { DialogClosedEvent } from "/js/events.js";
@@ -349,34 +441,76 @@
       </script>
       <!-- Overlay with feature: -->
       <button id="show-overlay-with-feature-btn" class="btn-action">
-        Overlay with Feature
+        Overlay with Feature Panel
       </button>
       <overlay-panel id="overlay-with-feature">
-        <h3>Overlay with Feature</h3>
-        <div>
-          <button class="btn-action" onclick="alert('Done.')">
-            Action 1
-          </button>
-          <button class="btn-action" onclick="alert('Done.')">
-            Action 2
-          </button>
-          <button class="btn-action" onclick="alert('Done.')">
-            Action 3
-          </button>
+        <div id="overlay-with-feature-initial-state">
+          <h3>Overlay with Feature Panel</h3>
+          <div>
+            <button class="btn-action" onclick="alert('I’m an alert!')">
+              Show an Alert
+            </button>
+            <button
+              class="btn-action"
+              id="overlay-with-feature-secondary-state-btn"
+            >
+              Go to Secondary State
+            </button>
+          </div>
+          <p>
+            This overlay style is used for more comprehensive, non-linear
+            features.
+          </p>
+          <p>
+            In the bottom row, the overlay should contain a single button, which
+            is labelled “Close” and terminates the dialog.
+          </p>
+          <p>
+            The overlay may contain “secondary” actions that advance the overlay
+            into a different state. The corresponding buttons shouldn’t be
+            primary ones, and they shouldn’t appear in the bottom row.
+          </p>
+          <button id="close-overlay-with-feature-btn">Close</button>
         </div>
-        <div>
-          When the user can carry out “secondary” actions within the overlay
-          that don’t terminate the dialog itself, the blue action buttons should
-          be used for that. They also shouldn’t appear at the bottom.
+        <div id="overlay-with-feature-secondary-state">
+          <h3>Secondary State</h3>
+          <p>
+            The secondary state should have buttons in the bottom row, which
+            follow the same rules as in the “Overlay with Primary Action”,
+            except that …:
+          </p>
+          <ul style="text-align: left">
+            <li>
+              The buttons take the user back to the initial overlay state
+              instead of terminating the overlay.
+            </li>
+            <li>
+              The rightmost button is labelled “Back” instead of “Close”. We
+              deliberately don’t say “Cancel”, as that would make it unclear
+              whether the button terminates the overlay.
+            </li>
+          </ul>
+          <button class="btn-success overlay-with-feature-initialize-btn">
+            Confirm
+          </button>
+          <button class="overlay-with-feature-initialize-btn">Back</button>
         </div>
-        <button id="close-overlay-with-feature-btn">Close</button>
       </overlay-panel>
       <script type="module">
         import { DialogClosedEvent } from "/js/events.js";
 
+        function setDialogState(newState /* = "initial" or "secondary" */) {
+          document.getElementById(
+            "overlay-with-feature-initial-state"
+          ).style.display = newState === "initial" ? "block" : "none";
+          document.getElementById(
+            "overlay-with-feature-secondary-state"
+          ).style.display = newState === "initial" ? "none" : "block";
+        }
         document
           .getElementById("show-overlay-with-feature-btn")
           .addEventListener("click", () => {
+            setDialogState("initial");
             document.getElementById("overlay-with-feature").show();
           });
         document
@@ -384,6 +518,18 @@
           .addEventListener("click", (evt) => {
             evt.target.dispatchEvent(new DialogClosedEvent());
           });
+        document
+          .getElementById("overlay-with-feature-secondary-state-btn")
+          .addEventListener("click", () => {
+            setDialogState("secondary");
+          });
+        document
+          .querySelectorAll(".overlay-with-feature-initialize-btn")
+          .forEach((el) =>
+            el.addEventListener("click", () => {
+              setDialogState("initial");
+            })
+          );
       </script>
       <!-- Error overlay: -->
       <overlay-panel id="error-overlay" variant="danger">
@@ -435,10 +581,6 @@
         dialog. These primary actions should either advance the dialog into a
         different state, or they should terminate the dialog altogether.
       </p>
-      <p>
-        If there is a primary button for closing or canceling the dialog, it
-        should always be the rightmost one.
-      </p>
 
       <h2 class="section">Progress Indicator</h2>
       <p>
@@ -447,7 +589,7 @@
       </p>
       <progress-spinner></progress-spinner>
       <progress-spinner
-        style="--size: 2rem; --thickness: 5px;"
+        style="--size: 2rem; --thickness: 5px"
       ></progress-spinner>
     </main>
   </body>

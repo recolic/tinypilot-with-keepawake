@@ -1,13 +1,13 @@
-import {
-  isModifierCode,
-  findKeyCode,
-  keystrokeToCanonicalCode,
-  requiresShiftKey,
-} from "./keycodes.js";
+import { isModifierCode, keystrokeToCanonicalCode } from "./keycodes.js";
 import { KeyboardState } from "./keyboardstate.js";
 import { sendKeystroke } from "./keystrokes.js";
 import * as settings from "./settings.js";
 import { OverlayTracker } from "./overlays.js";
+
+// Suppress ESLint warnings about undefined variables.
+// `io` is defined by the Socket.IO library, which is globally available on the
+// page.
+/* global io */
 
 const socket = io();
 let connectedToServer = false;
@@ -16,18 +16,6 @@ const keyboardState = new KeyboardState();
 
 // Keep track of overlays, in order to properly deactivate keypress forwarding.
 const overlayTracker = new OverlayTracker();
-
-function hideElementById(id) {
-  document.getElementById(id).style.display = "none";
-}
-
-function showElementById(id, display = "block") {
-  document.getElementById(id).style.display = display;
-}
-
-function isElementShown(id) {
-  return document.getElementById(id).style.display !== "none";
-}
 
 /**
  * @see `DialogFailedEvent` for parameter `errorInfo`
@@ -70,13 +58,6 @@ function unixTime() {
   return new Date().getTime();
 }
 
-function browserLanguage() {
-  if (navigator.languages) {
-    return navigator.languages[0];
-  }
-  return navigator.language || navigator.userLanguage;
-}
-
 const keystrokeHistory = document.getElementById("status-bar").keystrokeHistory;
 
 // Send a keystroke message to the backend, and add a key card to the web UI.
@@ -85,7 +66,7 @@ function processKeystroke(keystroke) {
   // sends dummy keydown events with a keycode of 229. Ignore these events, as
   // there's no way to map it to a real key.
   if (keystroke.keyCode === 229) {
-    resolve({});
+    return;
   }
   const keystrokeHistoryEvent = keystrokeHistory.push(keystroke.key);
   const result = sendKeystroke(socket, keystroke);
@@ -112,17 +93,17 @@ function onSocketConnect() {
 function onSocketDisconnect() {
   setCursor("disabled", false);
   connectedToServer = false;
-  const connectionIndicator = document.getElementById("status-bar")
-    .connectionIndicator;
+  const connectionIndicator =
+    document.getElementById("status-bar").connectionIndicator;
   connectionIndicator.connected = false;
   document.getElementById("app").focus();
 }
 
 /**
- * @param evt https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent
+ * @param {KeyboardEvent} evt - https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent
  */
 function onKeyDown(evt) {
-  if (isPasteOverlayShowing() || overlayTracker.hasOverlays()) {
+  if (overlayTracker.hasOverlays()) {
     return;
   }
 
@@ -197,23 +178,20 @@ function sendMouseEvent(
     (response) => {
       const requestEndTime = unixTime();
       const requestRtt = requestEndTime - requestStartTime;
-      remoteScreen.millisecondsBetweenMouseEvents = recalculateMouseEventThrottle(
-        remoteScreen.millisecondsBetweenMouseEvents,
-        requestRtt,
-        response.success
-      );
+      remoteScreen.millisecondsBetweenMouseEvents =
+        recalculateMouseEventThrottle(
+          remoteScreen.millisecondsBetweenMouseEvents,
+          requestRtt,
+          response.success
+        );
     }
   );
 }
 
 /**
- * @param evt https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent
+ * @param {KeyboardEvent} evt - https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent
  */
 function onKeyUp(evt) {
-  if (isPasteOverlayShowing()) {
-    return;
-  }
-
   const canonicalCode = keystrokeToCanonicalCode(evt);
   keyboardState.onKeyUp(evt);
 
@@ -226,45 +204,6 @@ function onKeyUp(evt) {
   }
 }
 
-// Translate a single character into a keystroke and sends it to the backend.
-function processTextCharacter(textCharacter, language) {
-  // Ignore carriage returns.
-  if (textCharacter === "\r") {
-    return;
-  }
-
-  const code = findKeyCode([textCharacter.toLowerCase()], language);
-  let friendlyName = textCharacter;
-  // Give cleaner names to keys so that they render nicely in the history.
-  if (textCharacter === "\n") {
-    friendlyName = "Enter";
-  } else if (textCharacter === "\t") {
-    friendlyName = "Tab";
-  }
-
-  processKeystroke({
-    metaLeft: false,
-    metaRight: false,
-    altLeft: false,
-    altRight: false,
-    shiftLeft: requiresShiftKey(textCharacter),
-    shiftRight: false,
-    ctrlLeft: false,
-    ctrlRight: false,
-    key: friendlyName,
-    code: code,
-  });
-}
-
-// Translate a string of text into individual keystrokes and sends them to the
-// backend.
-function processTextInput(textInput) {
-  const language = browserLanguage();
-  for (const textCharacter of textInput) {
-    processTextCharacter(textCharacter, language);
-  }
-}
-
 function setCursor(cursor, save = true) {
   // Ensure the correct cursor option displays as active in the navbar.
   if (save) {
@@ -274,16 +213,6 @@ function setCursor(cursor, save = true) {
   if (connectedToServer) {
     document.getElementById("remote-screen").cursor = cursor;
   }
-}
-
-function setKeyboardVisibility(isVisible) {
-  if (isVisible) {
-    showElementById("on-screen-keyboard");
-  } else {
-    hideElementById("on-screen-keyboard");
-  }
-  settings.setKeyboardVisibility(isVisible);
-  document.getElementById("menu-bar").isKeyboardVisible = isVisible;
 }
 
 function setKeystrokeHistoryStatus(isEnabled) {
@@ -301,8 +230,11 @@ document.onload = document.getElementById("app").focus();
 
 document.addEventListener("keydown", onKeyDown);
 document.addEventListener("keyup", onKeyUp);
-document.addEventListener("overlay-toggled", (evt) => {
-  overlayTracker.trackStatus(evt.target, evt.detail.isShown);
+document.addEventListener("overlay-shown", (evt) => {
+  overlayTracker.trackStatus(evt.detail.overlay, /*isShown=*/ true);
+});
+document.addEventListener("overlay-hidden", (evt) => {
+  overlayTracker.trackStatus(evt.detail.overlay, /*isShown=*/ false);
 });
 document.addEventListener("video-streaming-mode-changed", (evt) => {
   document.getElementById("status-bar").videoStreamIndicator.mode =
@@ -315,15 +247,28 @@ document.addEventListener("video-streaming-mode-changed", (evt) => {
 // for example, then the browser would only receive the "keydown" event for Alt,
 // since the Tab press is intercepted by the operating system and switches focus
 // to another application. That way, the modifier key appears stuck on the
-// target machine. To avoid this, we release any modifier keycodes being pressed
-// when the browser window loses focus.
+// target machine.
+// For keycode combinations like Meta + L, which switches focus to the address
+// bar in Chrome, the browser would only receive the "keydown" events, since
+// the focus has exited the browser window and the "keyup" events are not
+// captured.
+// To avoid these situations, we release all keys being pressed when the
+// browser window loses focus.
 window.addEventListener("blur", () => {
   keyboardState
-    .getAllPressedModifierKeys()
+    .getAllPressedKeys()
     .forEach((keyCode) =>
       onKeyUp(new KeyboardEvent("keyup", { code: keyCode }))
     );
 });
+
+const onScreenKeyboard = document.getElementById("on-screen-keyboard");
+onScreenKeyboard.addEventListener("keyboard-visibility-changed", (evt) => {
+  const isVisible = evt.detail.isVisible;
+  settings.setKeyboardVisibility(isVisible);
+  document.getElementById("menu-bar").isKeyboardVisible = isVisible;
+});
+onScreenKeyboard.show(settings.isKeyboardVisible());
 
 const menuBar = document.getElementById("menu-bar");
 menuBar.cursor = settings.getScreenCursor();
@@ -331,12 +276,38 @@ menuBar.addEventListener("cursor-selected", (evt) => {
   setCursor(evt.detail.cursor);
 });
 menuBar.addEventListener("keystroke-history-toggled", () => {
-  const isEnabled = document.getElementById("status-bar").keystrokeHistory
-    .isEnabled;
+  const isEnabled =
+    document.getElementById("status-bar").keystrokeHistory.isEnabled;
   setKeystrokeHistoryStatus(!isEnabled);
 });
 menuBar.addEventListener("keyboard-visibility-toggled", () => {
-  setKeyboardVisibility(!isElementShown("on-screen-keyboard"));
+  onScreenKeyboard.show(!onScreenKeyboard.isShown());
+});
+menuBar.addEventListener("dedicated-window-requested", () => {
+  // Open popup window in standalone view mode (without menu bar or status bar).
+  // Determine the current size of the remote screen, and take it over as
+  // initial size for the popup window. This is just convenience functionality:
+  // it subtly illustrates the mechanism of the remote screen “popping out” to
+  // its own window as is, and it also respects if the user had manually
+  // adjusted the window size to optimize ergonomics.
+  const { width, height } = document.getElementById("remote-screen").size();
+  window.open(
+    "/?viewMode=standalone",
+    undefined,
+    // We need to add noopener to prevent a bug on Firefox where tearing down
+    // the existing page causes the browser to garbage collect resources that
+    // the popup tries to access.
+    // https://github.com/tiny-pilot/tinypilot/issues/1609
+    `popup=true,noopener,width=${width},height=${height}`
+  );
+
+  // Redirect the user to a placeholder page. We can’t keep the main window
+  // open as is, because then we’d have a duplicate video stream (which would
+  // result in twice the bandwidth consumption), or we’d risk inconsistent view
+  // state, or ambiguous control flows between the two windows.
+  // Leaving the main page via an external redirect is a rather pragmatic yet
+  // effective approach to ensure proper teardown of the main window resources.
+  window.location = "/dedicated-window-placeholder";
 });
 menuBar.addEventListener("shutdown-dialog-requested", () => {
   document.getElementById("shutdown-overlay").show();
@@ -347,17 +318,20 @@ menuBar.addEventListener("update-dialog-requested", () => {
 });
 menuBar.addEventListener("change-hostname-dialog-requested", () => {
   document.getElementById("change-hostname-overlay").show();
-  document.getElementById("change-hostname-dialog").initialize();
+});
+menuBar.addEventListener("wifi-dialog-requested", () => {
+  document.getElementById("wifi-overlay").show();
+});
+menuBar.addEventListener("network-status-dialog-requested", () => {
+  document.getElementById("network-status-overlay").show();
 });
 menuBar.addEventListener("fullscreen-requested", () => {
   document.getElementById("remote-screen").fullscreen = true;
 });
 menuBar.addEventListener("debug-logs-dialog-requested", () => {
-  document.getElementById("debug-dialog").retrieveLogs();
   document.getElementById("debug-overlay").show();
 });
 menuBar.addEventListener("about-dialog-requested", () => {
-  document.getElementById("about-dialog").initialize();
   document.getElementById("about-overlay").show();
 });
 menuBar.addEventListener("mass-storage-dialog-requested", () => {
@@ -366,12 +340,14 @@ menuBar.addEventListener("mass-storage-dialog-requested", () => {
 menuBar.addEventListener("wake-on-lan-dialog-requested", () => {
   document.getElementById("feature-pro-overlay").show();
 });
+menuBar.addEventListener("static-ip-dialog-requested", () => {
+  document.getElementById("feature-pro-overlay").show();
+});
 menuBar.addEventListener("video-settings-dialog-requested", () => {
-  document.getElementById("video-settings-dialog").initialize();
   document.getElementById("video-settings-overlay").show();
 });
-menuBar.addEventListener("paste-requested", () => {
-  showPasteOverlay();
+menuBar.addEventListener("paste-dialog-requested", () => {
+  document.getElementById("paste-overlay").show();
 });
 menuBar.addEventListener("ctrl-alt-del-requested", () => {
   // Even though only the final keystroke matters, send them one at a time to
@@ -395,7 +371,7 @@ menuBar.addEventListener("ctrl-alt-del-requested", () => {
     code: "Delete",
   });
 });
-setKeyboardVisibility(settings.isKeyboardVisible());
+
 setKeystrokeHistoryStatus(settings.isKeystrokeHistoryEnabled());
 
 document
@@ -414,19 +390,11 @@ document.addEventListener("dialog-failed", (evt) => {
   showError(evt.detail);
 });
 
-document
-  .getElementById("paste-overlay")
-  .addEventListener("paste-text", (evt) => {
-    processTextInput(evt.detail);
-
-    // Give focus back to the app for normal text input.
-    document.getElementById("app").focus();
-  });
 const shutdownDialog = document.getElementById("shutdown-dialog");
-shutdownDialog.addEventListener("shutdown-started", (evt) => {
+shutdownDialog.addEventListener("shutdown-started", () => {
   // Hide the interactive elements of the page during shutdown.
   for (const elementId of ["remote-screen", "on-screen-keyboard"]) {
-    hideElementById(elementId);
+    document.getElementById(elementId).style.display = "none";
   }
 });
 

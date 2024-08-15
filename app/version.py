@@ -1,6 +1,8 @@
 import dataclasses
 import json
+import ssl
 import urllib.request
+from datetime import date
 
 import flask
 
@@ -13,6 +15,10 @@ class VersionFileError(Error):
     pass
 
 
+class CertificateNotYetValidError(Error):
+    code = 'CERTIFICATE_NOT_YET_VALID'
+
+
 class VersionRequestError(Error):
     pass
 
@@ -22,7 +28,9 @@ _VERSION_FILE = './VERSION'
 
 @dataclasses.dataclass
 class UpdateInfo:
-    """This data structure reflects the response of Gatekeeper’s
+    """Metadata about a TinyPilot update package.
+
+    This data structure reflects the response of Gatekeeper’s
     `/available-update` routes.
     """
     version: str
@@ -63,8 +71,7 @@ def local_version():
 
 
 def latest_version():
-    """Requests info about the latest release from the TinyPilot Gatekeeper REST
-    API.
+    """Requests the latest release info from the TinyPilot Gatekeeper REST API.
 
     Returns:
         An UpdateInfo object, containing the information about the release.
@@ -79,6 +86,12 @@ def latest_version():
                 timeout=10) as response:
             response_bytes = response.read()
     except urllib.error.URLError as e:
+        if (isinstance(e.reason, ssl.SSLCertVerificationError) and
+                e.reason.verify_message == 'certificate is not yet valid'):
+            raise CertificateNotYetValidError(
+                'Server\'s certificate start date is ahead of TinyPilot\'s'
+                f' system date of {date.today():%Y-%m-%d}. Check the system'
+                f' date to ensure that it is accurate. {e}') from e
         raise VersionRequestError(
             f'Failed to request latest available version: {e}') from e
 
