@@ -127,6 +127,25 @@
       border-top: var(--height) solid var(--brand-creme-light);
     }
 
+    /* Standalone toolbar buttons (no dropdown) */
+    .toolbar-btn {
+      display: flex;
+      z-index: 1;
+      margin-left: 2rem;
+      height: 100%;
+      align-items: center;
+    }
+
+    .toolbar-btn > a {
+      padding: 0 0.6em;
+      line-height: 45px;
+    }
+
+    .toolbar-btn > a:hover {
+      background: var(--brand-metallic-light);
+      border-radius: var(--border-radius);
+    }
+
     .subgroup .items {
       left: 100%;
       top: 0;
@@ -360,6 +379,14 @@
           >
         </li>
       </ul>
+    </li>
+
+    <!-- Standalone quick-action buttons (Action->Paste and View->Full Screen) -->
+    <li class="toolbar-btn" role="presentation">
+      <a data-onclick-event="paste-dialog-requested" role="button">Paste</a>
+    </li>
+    <li class="toolbar-btn" role="presentation">
+      <a data-onclick-event="fullscreen-requested" role="button">Full Screen</a>
     </li>
   </ul>
 </template>
