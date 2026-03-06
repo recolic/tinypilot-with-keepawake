@@ -1,6 +1,6 @@
 # This module keeps target machine unlocked by one of two ways:
 #   1. moving mouse by 1 pixel every 58 seconds.
-#   2. press "PrintScreen" key every 58 seconds. (Pause/Break key will suspend process in putty, F13-F16 will print ~ in putty. PrtScreen will fuck pastebin. Fuck stupid windows!)
+#   2. press "NUMLOCK" key every 58 seconds. (Pause/Break key will suspend process in putty, F13-F16 will print ~ in putty. PrtScreen will fuck pastebin. Fuck stupid windows!)
 
 import time, threading
 from hid import keyboard as fake_keyboard
@@ -23,7 +23,7 @@ def wake_once_method_2(keyboard_path):
 def keep_awake_daemon_func(keyboard_path):
     wake_once_method_2(keyboard_path)
     while True:
-        time.sleep(58)
+        time.sleep(60+58)
         wake_once_method_2(keyboard_path)
 
 def start_keep_awake_thread(keyboard_path):
