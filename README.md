@@ -1,6 +1,7 @@
 # recolic mod:
 
 1. auto keep awake: press NUM LOCK every 1.9min
+2. toolbar quick actions: standalone **Paste** and **Full Screen** buttons in the menu bar (no dropdown)
 
 # TinyPilot
 
